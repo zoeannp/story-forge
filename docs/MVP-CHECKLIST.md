@@ -23,16 +23,15 @@ Each stage must meet its Definition of Done before moving forward
 -[x] Create StoryForge repository
 -[x] Clone repository locally
 -[x] Add `.gitignore`
--[] Install required dependencies
--[] Confirm application runs locally
--[] Create base folder structure
--[] Create Initial README
--[] Make first clean commit
+-[x] Install required dependencies
+-[x] Confirm application runs locally
+-[x] Create base folder structure
+-[x] Make first clean commit
 
 ### Definition of Done
--[] Repository can be cloned
--[] Dependencies can be installed
--[] Application starts without errors
+-[x] Repository can be cloned
+-[x] Dependencies can be installed
+-[x] Application starts without errors
 
 ---
 ## Stage 2 - Authentication
