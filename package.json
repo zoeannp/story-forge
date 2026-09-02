@@ -1,0 +1,21 @@
+{
+    "name": "story-forge",
+    "version": "1.0.0",
+    "description": "StoryForge - an author and beta reader collaboration platform",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "firebase": "^12.18.0",
+        "react": "^19.2.8",
+        "react-dom": "^19.2.8",
+        "react-router-dom": "^7.18.3"
+    },
+    "devDependencies": {
+        "@vitejs/plugin-react": "6.1.1",
+        "vite": "^8.2.2"
+    }
+}
