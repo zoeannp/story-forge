@@ -1,38 +1,74 @@
-import { addProject } from "./projects.js";
+import {
+    addProject,
+    getProjectById
+} from "./projects.js";
+
 import { getProjects } from "./storage.js";
+
 import {
     renderCreateProjectForm,
-    renderProjectList
+    renderProjectList,
+    renderProjectView
 } from "./ui.js";
 
 const app = document.querySelector("#app");
 
-renderCreateProjectForm(app);
+function showDashboard() {
+    renderCreateProjectForm(app);
 
-const form = document.querySelector("#create-project-form");
-const titleInput = document.querySelector("#project-title");
-const projectList = document.querySelector("#project-list");
+    const form = document.querySelector("#create-project-form");
+    const titleInput = document.querySelector("#project-title");
+    const projectList = document.querySelector("#project-list");
 
-function refreshProjectList() {
-    const projects = getProjects();
+    function refreshProjectList() {
+        const projects = getProjects();
+        renderProjectList(projectList, projects);
+    }
 
-    renderProjectList(projectList, projects);
+    refreshProjectList();
+
+    form.addEventListener("submit", (event) => {
+        event.preventDefault();
+
+        const title = titleInput.value.trim();
+
+        if (!title) {
+            return;
+        }
+
+        addProject(title);
+        titleInput.value = "";
+
+        refreshProjectList();
+    });
+
+    projectList.addEventListener("click", (event) => {
+        const projectCard = event.target.closest(".project-card");
+
+        if (!projectCard) {
+            return;
+        }
+
+        const projectId = projectCard.dataset.projectId;
+
+        openProject(projectId);
+    });
 }
 
-refreshProjectList();
+function openProject(projectId) {
+    const project = getProjectById(projectId);
 
-form.addEventListener("submit", (event) => {
-    event.preventDefault();
-
-    const title = titleInput.value.trim();
-
-    if (!title) {
+    if (!project) {
         return;
     }
 
-    addProject(title);
+    renderProjectView(app, project);
 
-    titleInput.value = "";
+    const backButton = document.querySelector("#back-to-projects");
 
-    refreshProjectList();
-});
+    backButton.addEventListener("click", () => {
+        showDashboard();
+    });
+}
+
+showDashboard();

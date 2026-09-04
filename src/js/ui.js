@@ -35,7 +35,6 @@ export function renderProjectList(container, projects) {
                 No projects yet. Create your first project above.
             </p>
         `;
-
         return;
     }
 
@@ -46,7 +45,11 @@ export function renderProjectList(container, projects) {
             <div class="row g-3 mt-2">
                 ${projects.map(project => `
                     <div class="col-md-6 col-lg-4">
-                        <div class="card h-100">
+                        <button
+                            class="card h-100 w-100 text-start project-card"
+                            data-project-id="${project.id}"
+                            type="button"
+                        >
                             <div class="card-body">
                                 <h3 class="card-title h5">
                                     ${project.title}
@@ -56,10 +59,34 @@ export function renderProjectList(container, projects) {
                                     ${project.chapters.length} chapters
                                 </p>
                             </div>
-                        </div>
+                        </button>
                     </div>
                 `).join("")}
             </div>
+        </div>
+    `;
+}
+
+export function renderProjectView(container, project) {
+    container.innerHTML = `
+        <div class="container mt-5">
+            <button
+                id="back-to-projects"
+                class="btn btn-outline-secondary mb-4"
+                type="button"
+            >
+                ← Back to Projects
+            </button>
+
+            <h1>${project.title}</h1>
+
+            <p class="text-muted">
+                ${project.chapters.length} chapters
+            </p>
+
+            <hr>
+
+            <p>Project workspace coming next.</p>
         </div>
     `;
 }

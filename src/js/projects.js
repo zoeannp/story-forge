@@ -21,3 +21,9 @@ export function addProject(title) {
 
     return newProject;
 }
+
+export function getProjectById(id) {
+    const projects = getProjects();
+
+    return projects.find(project => project.id === id);
+}
