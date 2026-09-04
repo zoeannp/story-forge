@@ -1,6 +1,8 @@
+// Coordinates the dashboard, project view, and user interactions.
 import {
     addProject,
-    getProjectById
+    getProjectById,
+    addChapterToProject
 } from "./projects.js";
 
 import { getProjects } from "./storage.js";
@@ -13,6 +15,7 @@ import {
 
 const app = document.querySelector("#app");
 
+// Render the dashboard and attach handlers for creating and opening projects.
 function showDashboard() {
     renderCreateProjectForm(app);
 
@@ -20,6 +23,7 @@ function showDashboard() {
     const titleInput = document.querySelector("#project-title");
     const projectList = document.querySelector("#project-list");
 
+    // Re-read storage so the list always reflects the latest project data.
     function refreshProjectList() {
         const projects = getProjects();
         renderProjectList(projectList, projects);
@@ -45,6 +49,7 @@ function showDashboard() {
     projectList.addEventListener("click", (event) => {
         const projectCard = event.target.closest(".project-card");
 
+        // Ignore clicks that did not originate inside a project card.
         if (!projectCard) {
             return;
         }
@@ -55,9 +60,11 @@ function showDashboard() {
     });
 }
 
+// Render one project and attach handlers for navigation and chapter creation.
 function openProject(projectId) {
     const project = getProjectById(projectId);
 
+    // A missing project can happen if stored data changed before the click.
     if (!project) {
         return;
     }
@@ -65,9 +72,25 @@ function openProject(projectId) {
     renderProjectView(app, project);
 
     const backButton = document.querySelector("#back-to-projects");
+    const chapterForm = document.querySelector("#create-chapter-form");
+    const chapterTitleInput = document.querySelector("#chapter-title");
 
     backButton.addEventListener("click", () => {
         showDashboard();
+    });
+
+    chapterForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+
+        const title = chapterTitleInput.value.trim();
+
+        if (!title) {
+            return;
+        }
+
+        addChapterToProject(projectId, title);
+
+        openProject(projectId);
     });
 }
 

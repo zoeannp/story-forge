@@ -1,3 +1,6 @@
+// Builds the HTML views used by the StoryForge application.
+ 
+// Render the form used to create a new project.
 export function renderCreateProjectForm(container) {
     container.innerHTML = `
         <div class="container mt-5">
@@ -28,6 +31,7 @@ export function renderCreateProjectForm(container) {
     `;
 }
 
+// Render project cards, or an empty state when no projects exist.
 export function renderProjectList(container, projects) {
     if (projects.length === 0) {
         container.innerHTML = `
@@ -38,6 +42,7 @@ export function renderProjectList(container, projects) {
         return;
     }
 
+    // Each card keeps the project ID in the DOM for event delegation in app.js.
     container.innerHTML = `
         <div class="mt-5">
             <h2>Your Projects</h2>
@@ -67,6 +72,7 @@ export function renderProjectList(container, projects) {
     `;
 }
 
+// Render the selected project and its chapter creation form.
 export function renderProjectView(container, project) {
     container.innerHTML = `
         <div class="container mt-5">
@@ -86,7 +92,25 @@ export function renderProjectView(container, project) {
 
             <hr>
 
-            <p>Project workspace coming next.</p>
+            <form id="create-chapter-form" class="mt-4">
+                <div class="mb-3">
+                    <label for="chapter-title" class="form-label">
+                        Chapter Title
+                    </label>
+
+                    <input
+                        type="text"
+                        id="chapter-title"
+                        class="form-control"
+                        placeholder="Enter chapter title"
+                        required
+                    >
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    Add Chapter
+                </button>
+            </form>
         </div>
     `;
 }
