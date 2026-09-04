@@ -1,5 +1,9 @@
 import { addProject } from "./projects.js";
-import { renderCreateProjectForm } from "./ui.js";
+import { getProjects } from "./storage.js";
+import {
+    renderCreateProjectForm,
+    renderProjectList
+} from "./ui.js";
 
 const app = document.querySelector("#app");
 
@@ -7,6 +11,15 @@ renderCreateProjectForm(app);
 
 const form = document.querySelector("#create-project-form");
 const titleInput = document.querySelector("#project-title");
+const projectList = document.querySelector("#project-list");
+
+function refreshProjectList() {
+    const projects = getProjects();
+
+    renderProjectList(projectList, projects);
+}
+
+refreshProjectList();
 
 form.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -17,9 +30,9 @@ form.addEventListener("submit", (event) => {
         return;
     }
 
-    const project = addProject(title);
-
-    console.log("Project created:", project);
+    addProject(title);
 
     titleInput.value = "";
+
+    refreshProjectList();
 });
