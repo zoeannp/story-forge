@@ -1,200 +1,127 @@
-# StoryForge MVP Development Checklist
+# StoryForge MVP
 
-# MVP Goal
-StoryForge's MVP will allow an author to create and share a writing project securely with a beta reader, recieve feedback, and manage that feedback.
+## Development Rule
 
-The MVP must demonstrate the complete workflow:
-
-Author creates project
-* adds writing 
-* shares with beta reader
-* beta reader reads and comments
-* author reviews feedback
+Do not move to the next stage until the current stage is working
+and has been tested.
 
 ---
 
-# Development Rule
+## Stage 1 - Vanilla JavaScript Setup
 
-Do not  begin the next major development stage until the current stage is working and has been tested.
-
-Each stage must meet its Definition of Done before moving forward
-
-## Stage 1 - Project Setup
--[x] Create StoryForge repository
--[x] Clone repository locally
--[x] Add `.gitignore`
--[x] Install required dependencies
--[x] Confirm application runs locally
--[x] Create base folder structure
--[x] Make first clean commit
+- [x] Remove React from active project
+- [x] Remove React Router
+- [x] Remove React Vite plugin
+- [x] Create modular JavaScript structure
+- [x] Confirm Vite still runs
+- [x] Confirm StoryForge renders successfully
 
 ### Definition of Done
--[x] Repository can be cloned
--[x] Dependencies can be installed
--[x] Application starts without errors
 
----
-## Stage 2 - Authentication
--[] Create registration page
--[] Create login page
--[] Hash passwords securely
--[] Register users
--[] Log users in
--[] Log users out
--[] Protect authenticated routes
--[] Display useful authentication errors
-
-### Definition of Done
--[] New user can register
--[] Registered users can log in
--[] Incorrect credentials are rejected
--[] Logged-out user cannot access protected pages
--[] User can log out successfully
+- [x] Application runs using HTML, CSS and vanilla JavaScript
+- [x] No React dependencies are required
+- [x] No console errors
 
 ---
 
-## Stage 3 - Projects
--[] Create project model/table
--[] Create new project form
--[] Save project to database
--[] Assosiate project with its author
--[] Display author's projects
--[] Open induvidual project
--[] Edit basic project information
--[] Prevent users accessing projects they do not own
+## Stage 2 - Project Data Model
+
+- [ ] Define project object structure
+- [ ] Define chapter/scene structure
+- [ ] Create localStorage service
+- [ ] Save test project
+- [ ] Retrieve test project
 
 ### Definition of Done
--[] Author can create a project
--[] Project persists after restart
--[] Project appears in author's dashboard
--[] Project ownership is enforced
 
---- 
-
-## Stage 4 - Chapters/Scenes
--[] Create chapter model/table
--[] Add chapter to project
--[] Add chapter title (optional. Not all authors use chapter titles)
--[] Add manuscript text/content
--[] Edit chapter
--[] Delete chapter
--[] Display chapters within project
--[] Ensure chapters belong in the correct project
-
-### Definition of Done
--[] Author can create a chapter
--[] Author can write/edit manuscript content
--[] Saved chapter persists
--[] Chapters display in the correct project
+- [ ] Project can be saved to localStorage
+- [ ] Saved project survives browser refresh
+- [ ] Project can be loaded again
 
 ---
 
-## Stage 5 - Beta Reader Sharing
--[] Create beta-reader access system
--[] Allow author to select/invite reader
--[] Associate reader with project
--[] Create reader permissions
--[] Allow reader to access shared project
--[] Prevent reader from editing manuscript
--[] Prevent unauthorised users accessing shared project
+## Stage 3 - Project Management
 
-### Definition of Done
--[] Author can grant access to a beta reader
--[] Beta reader can open a shared work
--[] Other users cannot access the project
--[] Beta reader cannot edit author's manuscript
-
----
-
-## Stage 6 - Comments / Feedback
--[] Create feedback model/table
--[] Allow beta reader to leave feedback
--[] Associate feedback with reader
--[] Associate feedback with chapter/project
--[] Display feedback to author
--[] Allow author to manage feedback
-
-### Definition of Done
--[] Reader can submit feedback
--[] Feedback persists in database
--[] Author can see who submitted feedback
--[] Feedback appears on the correct work
--[] Unauthorised users cannot modify feedback
-
----
-
-## Stage 7 - MVP Integration Test
-
-Test the complete user journey.
-
-### Author
-
-- [ ] Register
-- [ ] Log in
 - [ ] Create project
-- [ ] Add chapter
-- [ ] Add manuscript content
-- [ ] Share project with beta reader
-
-### Beta Reader
-
-- [ ] Log in
-- [ ] Access shared project
-- [ ] Read chapter
-- [ ] Leave feedback
-
-### Author
-
-- [ ] Return to project
-- [ ] View beta-reader feedback
-- [ ] Manage feedback
+- [ ] Display project list
+- [ ] Open project
+- [ ] Rename/edit project
+- [ ] Delete project
 
 ### Definition of Done
 
-- [ ] Entire workflow works from beginning to end
-- [ ] No critical errors
-- [ ] Permissions behave correctly
-- [ ] Data persists correctly
+- [ ] User can create and reopen a project
+- [ ] Changes persist after refresh
 
 ---
 
-# MVP COMPLETE
+## Stage 4 - Chapters / Scenes
 
-The StoryForge MVP is complete when an author can:
+- [ ] Add chapter
+- [ ] Add scene
+- [ ] Rename chapter/scene
+- [ ] Select chapter/scene
+- [ ] Delete chapter/scene
+- [ ] Persist structure to localStorage
 
-1. Register and log in
-2. Create a writing project
-3. Add chapters/scenes
-4. Give a beta reader access
-5. Share their writing securely
-6. Receive comments/feedback
-7. View and manage that feedback
+### Definition of Done
+
+- [ ] Project can contain chapters/scenes
+- [ ] Structure persists after refresh
 
 ---
 
-# Future StoryForge Roadmap
+## Stage 5 - Writing Experience
 
-These features are deliberately OUTSIDE the MVP.
+- [ ] Create manuscript editor
+- [ ] Write/edit manuscript text
+- [ ] Autosave writing
+- [ ] Display save status
+- [ ] Restore writing when project is reopened
+- [ ] Create clean writing-focused UI
 
-- [ ] Google OAuth
-- [ ] Expanded authentication/security
-- [ ] Multiple books and series
-- [ ] Multiple workspaces
-- [ ] Advanced manuscript editor
-- [ ] Alpha reader groups
-- [ ] Beta reader groups
-- [ ] Inline annotations
-- [ ] Feedback categories
-- [ ] Advanced role management
-- [ ] Story Bible
-- [ ] Character database
-- [ ] Location database
-- [ ] World-building tools
-- [ ] Revision history
-- [ ] Version history
-- [ ] EPUB export
-- [ ] DOCX export
-- [ ] PDF export
-- [ ] Backup system
-- [ ] Co-author collaboration
-- [ ] Analytics
+### Definition of Done
+
+- [ ] User can write comfortably
+- [ ] Writing saves automatically
+- [ ] No work is lost after refresh/reopen
+
+---
+
+## Stage 6 - Usability / Polish
+
+- [ ] Empty states
+- [ ] Confirmation before destructive actions
+- [ ] Responsive layout
+- [ ] Navigation/sidebar
+- [ ] Basic accessibility
+- [ ] Error handling
+
+---
+
+## Stage 7 - MVP Test
+
+- [ ] Create new project
+- [ ] Add chapter
+- [ ] Add scene
+- [ ] Write manuscript content
+- [ ] Close/reload application
+- [ ] Reopen project
+- [ ] Confirm all content remains
+- [ ] Edit existing content
+- [ ] Delete content safely
+
+# Future StoryForge
+
+- Authentication
+- Firebase/cloud persistence
+- Beta reader accounts
+- Secure sharing
+- Reader comments
+- Inline feedback
+- Co-author collaboration
+- Story Bible
+- Character/location databases
+- Export
+- Version history
+- AI integration

@@ -1,8 +1,8 @@
-const app = document.querySelector('#app');
+import { saveProjects, getProjects} from './storage.js';
+import { createProject } from './projects.js';
 
-app.innerHTML = `
-    <div class="container">
-        <h1>StoryForge</h1>
-        <p>Vanilla JavaScript setup successful.</p>
-    </div>
-`;
+const testProject = createProject("Test Novel");
+
+saveProjects([testProject]);
+
+console.log(getProjects());
