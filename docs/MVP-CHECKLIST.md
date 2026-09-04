@@ -26,17 +26,17 @@ and has been tested.
 
 ## Stage 2 - Project Data Model
 
-- [ ] Define project object structure
-- [ ] Define chapter/scene structure
-- [ ] Create localStorage service
-- [ ] Save test project
-- [ ] Retrieve test project
+- [x] Define basic project object structure
+- [x] Create localStorage service
+- [x] Save test project
+- [x] Retrieve test project
+- [x] Confirm data survives browser refresh
 
 ### Definition of Done
 
-- [ ] Project can be saved to localStorage
-- [ ] Saved project survives browser refresh
-- [ ] Project can be loaded again
+- [x] Project can be saved to localStorage
+- [x] Saved project survives browser refresh
+- [x] Project can be loaded again
 
 ---
 
