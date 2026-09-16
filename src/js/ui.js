@@ -306,7 +306,7 @@ export function renderChapterView(container, project, chapter) {
 
                                         <!--
                                             Store the scene ID on the button so app.js
-                                            can later determine which scene was clicked.
+                                            knows which scene the user selected.
                                         -->
                                         <button
                                             class="card h-100 w-100 text-start scene-card"
@@ -320,10 +320,6 @@ export function renderChapterView(container, project, chapter) {
                                                     ${scene.title}
                                                 </h3>
 
-                                                <!--
-                                                    Scene content is not shown here yet.
-                                                    This card will eventually open the scene editor.
-                                                -->
                                                 <p class="card-text text-muted">
                                                     Open scene
                                                 </p>
@@ -340,6 +336,74 @@ export function renderChapterView(container, project, chapter) {
                 }
 
             </div>
+
+        </div>
+    `;
+}
+
+
+// ============================================================
+// SCENE EDITOR VIEW
+// ============================================================
+
+// Render the selected scene and provide an editor for its written content.
+export function renderSceneView(container, project, chapter, scene) {
+
+    container.innerHTML = `
+        <div class="container mt-5">
+
+            <!-- Return to the chapter that contains this scene. -->
+            <button
+                id="back-to-chapter"
+                class="btn btn-outline-secondary mb-4"
+                type="button"
+            >
+                ← Back to ${chapter.title}
+            </button>
+
+
+            <!-- Display the selected scene's title. -->
+            <h1>${scene.title}</h1>
+
+            <!-- Show which project and chapter this scene belongs to. -->
+            <p class="text-muted">
+                ${project.title} / ${chapter.title}
+            </p>
+
+            <hr>
+
+
+            <!-- Form used to edit and save the scene's written content. -->
+            <form id="scene-editor-form" class="mt-4">
+
+                <div class="mb-3">
+
+                    <label for="scene-content" class="form-label">
+                        Scene Content
+                    </label>
+
+                    <!--
+                        The scene's existing content is loaded into the textarea.
+                        If the scene is new, scene.content will simply be empty.
+                    -->
+                    <textarea
+                        id="scene-content"
+                        class="form-control"
+                        rows="20"
+                        placeholder="Start writing your scene..."
+                    >${scene.content}</textarea>
+
+                </div>
+
+                <!-- Save the current scene content back to localStorage. -->
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                >
+                    Save Scene
+                </button>
+
+            </form>
 
         </div>
     `;

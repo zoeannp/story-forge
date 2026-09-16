@@ -141,3 +141,55 @@ export function addSceneToChapter(projectId, chapterId, title) {
 
     return scene;
 }
+
+// Update the written content of an existing scene.
+export function updateSceneContent(projectId, chapterId, sceneId, content) {
+
+    // Load the current project collection from storage.
+    const projects = getProjects();
+
+    // Find the project that contains the scene.
+    const project = projects.find(
+        project => project.id === projectId
+    );
+
+    // Stop if the project could not be found.
+    if (!project) {
+        return null;
+    }
+
+    // Find the chapter that contains the scene.
+    const chapter = project.chapters.find(
+        chapter => chapter.id === chapterId
+    );
+
+    // Stop if the chapter could not be found.
+    if (!chapter) {
+        return null;
+    }
+
+    // Find the scene that should be updated.
+    const scene = chapter.scenes.find(
+        scene => scene.id === sceneId
+    );
+
+    // Stop if the scene could not be found.
+    if (!scene) {
+        return null;
+    }
+
+    // Save the new scene content.
+    scene.content = content;
+
+    // Record when the scene was last modified.
+    scene.updatedAt = new Date().toISOString();
+
+    // The parent chapter and project were also modified.
+    chapter.updatedAt = new Date().toISOString();
+    project.updatedAt = new Date().toISOString();
+
+    // Save the updated project collection.
+    saveProjects(projects);
+
+    return scene;
+}

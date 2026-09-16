@@ -1,10 +1,12 @@
-// Coordinates the dashboard, project view, chapter view, and user interactions.
+// Coordinates the dashboard, project view, chapter view, scene editor,
+// and user interactions.
 
 import {
     addProject,
     getProjectById,
     addChapterToProject,
-    addSceneToChapter
+    addSceneToChapter,
+    updateSceneContent
 } from "./projects.js";
 
 import { getProjects } from "./storage.js";
@@ -13,7 +15,8 @@ import {
     renderCreateProjectForm,
     renderProjectList,
     renderProjectView,
-    renderChapterView
+    renderChapterView,
+    renderSceneView
 } from "./ui.js";
 
 
@@ -173,7 +176,8 @@ function openProject(projectId) {
 // CHAPTER VIEW
 // ============================================================
 
-// Render one chapter and attach handlers for navigation and scene creation.
+// Render one chapter and attach handlers for navigation,
+// scene creation, and opening scenes.
 function openChapter(projectId, chapterId) {
 
     // Load the parent project from storage.
@@ -204,6 +208,7 @@ function openChapter(projectId, chapterId) {
     const backButton = document.querySelector("#back-to-project");
     const sceneForm = document.querySelector("#create-scene-form");
     const sceneTitleInput = document.querySelector("#scene-title");
+    const sceneCards = document.querySelectorAll(".scene-card");
 
 
     // Return to the parent project.
@@ -235,6 +240,102 @@ function openChapter(projectId, chapterId) {
          * This reloads the latest data and displays the new scene.
          */
         openChapter(projectId, chapterId);
+    });
+
+
+    // Attach a click handler to every scene card currently displayed.
+    sceneCards.forEach((sceneCard) => {
+
+        sceneCard.addEventListener("click", () => {
+
+            // Read the scene ID stored on the clicked card.
+            const sceneId = sceneCard.dataset.sceneId;
+
+            // Open the selected scene in the editor.
+            openScene(projectId, chapterId, sceneId);
+        });
+    });
+}
+
+
+// ============================================================
+// SCENE EDITOR VIEW
+// ============================================================
+
+// Render one scene and attach handlers for navigation and saving content.
+function openScene(projectId, chapterId, sceneId) {
+
+    // Load the parent project from storage.
+    const project = getProjectById(projectId);
+
+    // Stop if the project could not be found.
+    if (!project) {
+        return;
+    }
+
+
+    // Find the chapter that contains the selected scene.
+    const chapter = project.chapters.find(
+        chapter => chapter.id === chapterId
+    );
+
+    // Stop if the chapter could not be found.
+    if (!chapter) {
+        return;
+    }
+
+
+    // Find the selected scene inside the chapter.
+    const scene = chapter.scenes.find(
+        scene => scene.id === sceneId
+    );
+
+    // Stop if the scene could not be found.
+    if (!scene) {
+        return;
+    }
+
+
+    // Build the scene editor interface.
+    renderSceneView(app, project, chapter, scene);
+
+
+    // Get references to the scene editor controls.
+    const backButton = document.querySelector("#back-to-chapter");
+    const sceneEditorForm = document.querySelector("#scene-editor-form");
+    const sceneContentInput = document.querySelector("#scene-content");
+
+
+    // Return to the chapter that contains this scene.
+    backButton.addEventListener("click", () => {
+
+        openChapter(projectId, chapterId);
+    });
+
+
+    // Handle saving the written content of the scene.
+    sceneEditorForm.addEventListener("submit", (event) => {
+
+        // Stop the form from refreshing the page.
+        event.preventDefault();
+
+        // Read the current text from the scene editor.
+        const content = sceneContentInput.value;
+
+        // Save the scene content and update its timestamps.
+        updateSceneContent(
+            projectId,
+            chapterId,
+            sceneId,
+            content
+        );
+
+        /*
+         * Re-open the scene after saving.
+         * This proves that the content being displayed came back from storage,
+         * rather than only remaining inside the textarea.
+         */
+        openScene(projectId, chapterId, sceneId);
     });
 }
 
