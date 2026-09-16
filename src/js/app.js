@@ -1,5 +1,5 @@
 // Coordinates the dashboard, project view, chapter view, scene editor,
-// autosave behaviour, and user interactions.
+// autosave behaviour, record management, and user interactions.
 
 
 // ============================================================
@@ -17,7 +17,6 @@ import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
 
 // Adds StoryForge's custom manuscript paragraph formatting.
-// This includes first-line indent, line spacing, and paragraph indent.
 import { ParagraphFormatting } from "./editorExtensions.js";
 
 
@@ -30,7 +29,13 @@ import {
     getProjectById,
     addChapterToProject,
     addSceneToChapter,
-    updateSceneContent
+    updateSceneContent,
+    renameProject,
+    deleteProject,
+    renameChapter,
+    deleteChapter,
+    renameScene,
+    deleteScene
 } from "./projects.js";
 
 import { getProjects } from "./storage.js";
@@ -55,13 +60,13 @@ const app = document.querySelector("#app");
 // DASHBOARD
 // ============================================================
 
-// Render the dashboard and attach handlers for creating and opening projects.
+// Render the dashboard and attach handlers for project management.
 function showDashboard() {
 
     // Build the dashboard interface.
     renderCreateProjectForm(app);
 
-    // Get references to the dashboard elements we need to interact with.
+    // Get references to the dashboard elements.
     const form = document.querySelector("#create-project-form");
     const titleInput = document.querySelector("#project-title");
     const projectList = document.querySelector("#project-list");
@@ -76,20 +81,23 @@ function showDashboard() {
     }
 
 
-    // Display any existing projects when the dashboard first loads.
+    // Display existing projects when the dashboard loads.
     refreshProjectList();
 
 
-    // Handle creation of a new project.
+    // ========================================================
+    // PROJECT CREATION
+    // ========================================================
+
     form.addEventListener("submit", (event) => {
 
         // Stop the form from refreshing the page.
         event.preventDefault();
 
-        // Remove unnecessary whitespace from the project title.
+        // Clean up the entered project title.
         const title = titleInput.value.trim();
 
-        // Do not create a project if the title is empty.
+        // Do not create a project with an empty title.
         if (!title) {
             return;
         }
@@ -97,27 +105,145 @@ function showDashboard() {
         // Create and save the new project.
         addProject(title);
 
-        // Clear the input after successful creation.
+        // Clear the input after creation.
         titleInput.value = "";
 
-        // Update the project cards shown on screen.
+        // Refresh the project cards.
         refreshProjectList();
     });
 
 
-    // Handle clicks on project cards.
+    // ========================================================
+    // PROJECT ACTIONS
+    // ========================================================
+
+    /*
+     * Use one click listener for the entire project list.
+     *
+     * This continues working even after the project cards are
+     * re-rendered following a rename, delete, or creation.
+     */
     projectList.addEventListener("click", (event) => {
 
-        // Find the nearest project card that was clicked.
-        const projectCard = event.target.closest(".project-card");
+        // ----------------------------------------------------
+        // RENAME PROJECT
+        // ----------------------------------------------------
+
+        const renameButton =
+            event.target.closest(".rename-project");
+
+        if (renameButton) {
+
+            const projectId =
+                renameButton.dataset.projectId;
+
+            const project =
+                getProjectById(projectId);
+
+            // Stop if the project no longer exists.
+            if (!project) {
+                return;
+            }
+
+
+            /*
+             * Ask for the replacement title.
+             *
+             * Native prompt dialogs are temporary MVP UI.
+             * These can become custom StoryForge modals later.
+             */
+            const newTitle = window.prompt(
+                "Rename project:",
+                project.title
+            );
+
+
+            // Cancel was selected.
+            if (newTitle === null) {
+                return;
+            }
+
+
+            // Rename the project.
+            const renamedProject =
+                renameProject(
+                    projectId,
+                    newTitle
+                );
+
+
+            // Refresh only if a valid title was supplied.
+            if (renamedProject) {
+                refreshProjectList();
+            }
+
+            return;
+        }
+
+
+        // ----------------------------------------------------
+        // DELETE PROJECT
+        // ----------------------------------------------------
+
+        const deleteButton =
+            event.target.closest(".delete-project");
+
+        if (deleteButton) {
+
+            const projectId =
+                deleteButton.dataset.projectId;
+
+            const project =
+                getProjectById(projectId);
+
+            // Stop if the project no longer exists.
+            if (!project) {
+                return;
+            }
+
+
+            /*
+             * Warn clearly because deleting a project also removes
+             * every chapter, scene, and piece of writing inside it.
+             */
+            const confirmed = window.confirm(
+                `Delete "${project.title}"?\n\n` +
+                "This will permanently delete the project, " +
+                "including all chapters, scenes, and written content."
+            );
+
+
+            // Leave the project untouched if deletion was cancelled.
+            if (!confirmed) {
+                return;
+            }
+
+
+            // Permanently remove the project.
+            deleteProject(projectId);
+
+            // Refresh the dashboard.
+            refreshProjectList();
+
+            return;
+        }
+
+
+        // ----------------------------------------------------
+        // OPEN PROJECT
+        // ----------------------------------------------------
+
+        const projectCard =
+            event.target.closest(".project-card");
 
         // Ignore clicks that did not happen inside a project card.
         if (!projectCard) {
             return;
         }
 
-        // Read the stored project ID from the card.
-        const projectId = projectCard.dataset.projectId;
+        // Read the stored project ID.
+        const projectId =
+            projectCard.dataset.projectId;
 
         // Open the selected project.
         openProject(projectId);
@@ -129,7 +255,7 @@ function showDashboard() {
 // PROJECT VIEW
 // ============================================================
 
-// Render one project and attach handlers for navigation and chapter creation.
+// Render one project and attach chapter management handlers.
 function openProject(projectId) {
 
     // Load the selected project from storage.
@@ -140,59 +266,198 @@ function openProject(projectId) {
         return;
     }
 
+
     // Build the project interface.
     renderProjectView(app, project);
 
 
-    // Get references to the project view controls.
-    const backButton = document.querySelector("#back-to-projects");
-    const chapterForm = document.querySelector("#create-chapter-form");
-    const chapterTitleInput = document.querySelector("#chapter-title");
-    const chapterCards = document.querySelectorAll(".chapter-card");
+    // Get references to project view controls.
+    const backButton =
+        document.querySelector("#back-to-projects");
+
+    const chapterForm =
+        document.querySelector("#create-chapter-form");
+
+    const chapterTitleInput =
+        document.querySelector("#chapter-title");
+
+    const chapterCards =
+        document.querySelectorAll(".chapter-card");
+
+    const renameChapterButtons =
+        document.querySelectorAll(".rename-chapter");
+
+    const deleteChapterButtons =
+        document.querySelectorAll(".delete-chapter");
 
 
-    // Return to the main dashboard.
+    // ========================================================
+    // BACK NAVIGATION
+    // ========================================================
+
     backButton.addEventListener("click", () => {
 
         showDashboard();
     });
 
 
-    // Handle creation of a new chapter.
+    // ========================================================
+    // CHAPTER CREATION
+    // ========================================================
+
     chapterForm.addEventListener("submit", (event) => {
 
         // Stop the form from refreshing the page.
         event.preventDefault();
 
         // Clean up the entered chapter title.
-        const title = chapterTitleInput.value.trim();
+        const title =
+            chapterTitleInput.value.trim();
 
-        // Do not create a chapter if the title is empty.
+        // Do not create an empty chapter title.
         if (!title) {
             return;
         }
 
-        // Create the chapter and add it to the selected project.
-        addChapterToProject(projectId, title);
+        // Add the chapter to the selected project.
+        addChapterToProject(
+            projectId,
+            title
+        );
 
         /*
-         * Re-open the project after saving.
-         * This reloads the latest project data and displays the new chapter.
+         * Re-open the project so the new chapter appears
+         * immediately with fresh project data.
          */
         openProject(projectId);
     });
 
 
-    // Attach a click handler to every chapter card currently displayed.
+    // ========================================================
+    // OPEN CHAPTER
+    // ========================================================
+
     chapterCards.forEach((chapterCard) => {
 
         chapterCard.addEventListener("click", () => {
 
-            // Read the chapter ID stored on the clicked card.
-            const chapterId = chapterCard.dataset.chapterId;
+            // Read the chapter ID stored on the card.
+            const chapterId =
+                chapterCard.dataset.chapterId;
 
             // Open the selected chapter.
-            openChapter(projectId, chapterId);
+            openChapter(
+                projectId,
+                chapterId
+            );
+        });
+    });
+
+
+    // ========================================================
+    // RENAME CHAPTER
+    // ========================================================
+
+    renameChapterButtons.forEach((renameButton) => {
+
+        renameButton.addEventListener("click", () => {
+
+            const chapterId =
+                renameButton.dataset.chapterId;
+
+            // Find the chapter being renamed.
+            const chapter =
+                project.chapters.find(
+                    chapter =>
+                        chapter.id === chapterId
+                );
+
+            // Stop if the chapter could not be found.
+            if (!chapter) {
+                return;
+            }
+
+
+            // Ask the user for the replacement chapter title.
+            const newTitle = window.prompt(
+                "Rename chapter:",
+                chapter.title
+            );
+
+
+            // Cancel was selected.
+            if (newTitle === null) {
+                return;
+            }
+
+
+            // Rename the chapter.
+            const renamedChapter =
+                renameChapter(
+                    projectId,
+                    chapterId,
+                    newTitle
+                );
+
+
+            // Reload the project if the rename succeeded.
+            if (renamedChapter) {
+                openProject(projectId);
+            }
+        });
+    });
+
+
+    // ========================================================
+    // DELETE CHAPTER
+    // ========================================================
+
+    deleteChapterButtons.forEach((deleteButton) => {
+
+        deleteButton.addEventListener("click", () => {
+
+            const chapterId =
+                deleteButton.dataset.chapterId;
+
+            // Find the chapter being deleted.
+            const chapter =
+                project.chapters.find(
+                    chapter =>
+                        chapter.id === chapterId
+                );
+
+            // Stop if the chapter could not be found.
+            if (!chapter) {
+                return;
+            }
+
+
+            /*
+             * Warn that every scene inside the chapter
+             * will be deleted with it.
+             */
+            const confirmed = window.confirm(
+                `Delete "${chapter.title}"?\n\n` +
+                "This will permanently delete this chapter " +
+                "and every scene inside it."
+            );
+
+
+            // Do nothing if deletion was cancelled.
+            if (!confirmed) {
+                return;
+            }
+
+
+            // Delete the chapter.
+            deleteChapter(
+                projectId,
+                chapterId
+            );
+
+
+            // Reload the project view.
+            openProject(projectId);
         });
     });
 }
@@ -202,12 +467,12 @@ function openProject(projectId) {
 // CHAPTER VIEW
 // ============================================================
 
-// Render one chapter and attach handlers for navigation,
-// scene creation, and opening scenes.
+// Render one chapter and attach scene management handlers.
 function openChapter(projectId, chapterId) {
 
-    // Load the parent project from storage.
-    const project = getProjectById(projectId);
+    // Load the parent project.
+    const project =
+        getProjectById(projectId);
 
     // Stop if the project could not be found.
     if (!project) {
@@ -215,70 +480,222 @@ function openChapter(projectId, chapterId) {
     }
 
 
-    // Find the selected chapter inside the project.
-    const chapter = project.chapters.find(
-        chapter => chapter.id === chapterId
-    );
+    // Find the selected chapter.
+    const chapter =
+        project.chapters.find(
+            chapter =>
+                chapter.id === chapterId
+        );
 
-    // Stop if the requested chapter could not be found.
+    // Stop if the chapter could not be found.
     if (!chapter) {
         return;
     }
 
 
     // Build the chapter interface.
-    renderChapterView(app, project, chapter);
+    renderChapterView(
+        app,
+        project,
+        chapter
+    );
 
 
-    // Get references to the chapter view controls.
-    const backButton = document.querySelector("#back-to-project");
-    const sceneForm = document.querySelector("#create-scene-form");
-    const sceneTitleInput = document.querySelector("#scene-title");
-    const sceneCards = document.querySelectorAll(".scene-card");
+    // Get references to chapter controls.
+    const backButton =
+        document.querySelector("#back-to-project");
+
+    const sceneForm =
+        document.querySelector("#create-scene-form");
+
+    const sceneTitleInput =
+        document.querySelector("#scene-title");
+
+    const sceneCards =
+        document.querySelectorAll(".scene-card");
+
+    const renameSceneButtons =
+        document.querySelectorAll(".rename-scene");
+
+    const deleteSceneButtons =
+        document.querySelectorAll(".delete-scene");
 
 
-    // Return to the parent project.
+    // ========================================================
+    // BACK NAVIGATION
+    // ========================================================
+
     backButton.addEventListener("click", () => {
 
         openProject(projectId);
     });
 
 
-    // Handle creation of a new scene inside the selected chapter.
+    // ========================================================
+    // SCENE CREATION
+    // ========================================================
+
     sceneForm.addEventListener("submit", (event) => {
 
         // Stop the form from refreshing the page.
         event.preventDefault();
 
-        // Clean up the entered scene title.
-        const title = sceneTitleInput.value.trim();
+        // Clean up the scene title.
+        const title =
+            sceneTitleInput.value.trim();
 
-        // Do not create a scene if the title is empty.
+        // Do not create an empty scene title.
         if (!title) {
             return;
         }
 
-        // Create the scene and add it to the selected chapter.
-        addSceneToChapter(projectId, chapterId, title);
+        // Add the scene to the selected chapter.
+        addSceneToChapter(
+            projectId,
+            chapterId,
+            title
+        );
 
-        /*
-         * Re-open the chapter after saving.
-         * This reloads the latest data and displays the new scene.
-         */
-        openChapter(projectId, chapterId);
+        // Reload the chapter to display the new scene.
+        openChapter(
+            projectId,
+            chapterId
+        );
     });
 
 
-    // Attach a click handler to every scene card currently displayed.
+    // ========================================================
+    // OPEN SCENE
+    // ========================================================
+
     sceneCards.forEach((sceneCard) => {
 
         sceneCard.addEventListener("click", () => {
 
-            // Read the scene ID stored on the clicked card.
-            const sceneId = sceneCard.dataset.sceneId;
+            // Read the scene ID stored on the card.
+            const sceneId =
+                sceneCard.dataset.sceneId;
 
-            // Open the selected scene in the editor.
-            openScene(projectId, chapterId, sceneId);
+            // Open the selected scene.
+            openScene(
+                projectId,
+                chapterId,
+                sceneId
+            );
+        });
+    });
+
+
+    // ========================================================
+    // RENAME SCENE
+    // ========================================================
+
+    renameSceneButtons.forEach((renameButton) => {
+
+        renameButton.addEventListener("click", () => {
+
+            const sceneId =
+                renameButton.dataset.sceneId;
+
+            // Find the scene being renamed.
+            const scene =
+                chapter.scenes.find(
+                    scene =>
+                        scene.id === sceneId
+                );
+
+            // Stop if the scene could not be found.
+            if (!scene) {
+                return;
+            }
+
+
+            // Ask for the replacement scene title.
+            const newTitle = window.prompt(
+                "Rename scene:",
+                scene.title
+            );
+
+
+            // Cancel was selected.
+            if (newTitle === null) {
+                return;
+            }
+
+
+            // Rename the scene.
+            const renamedScene =
+                renameScene(
+                    projectId,
+                    chapterId,
+                    sceneId,
+                    newTitle
+                );
+
+
+            // Reload the chapter if the rename succeeded.
+            if (renamedScene) {
+
+                openChapter(
+                    projectId,
+                    chapterId
+                );
+            }
+        });
+    });
+
+
+    // ========================================================
+    // DELETE SCENE
+    // ========================================================
+
+    deleteSceneButtons.forEach((deleteButton) => {
+
+        deleteButton.addEventListener("click", () => {
+
+            const sceneId =
+                deleteButton.dataset.sceneId;
+
+            // Find the scene being deleted.
+            const scene =
+                chapter.scenes.find(
+                    scene =>
+                        scene.id === sceneId
+                );
+
+            // Stop if the scene could not be found.
+            if (!scene) {
+                return;
+            }
+
+
+            // Warn that the scene content will be permanently removed.
+            const confirmed = window.confirm(
+                `Delete "${scene.title}"?\n\n` +
+                "This will permanently delete this scene " +
+                "and all of its written content."
+            );
+
+
+            // Do nothing if deletion was cancelled.
+            if (!confirmed) {
+                return;
+            }
+
+
+            // Delete the selected scene.
+            deleteScene(
+                projectId,
+                chapterId,
+                sceneId
+            );
+
+
+            // Reload the chapter view.
+            openChapter(
+                projectId,
+                chapterId
+            );
         });
     });
 }
@@ -291,8 +708,9 @@ function openChapter(projectId, chapterId) {
 // Render one scene and attach the TipTap rich-text editor.
 function openScene(projectId, chapterId, sceneId) {
 
-    // Load the parent project from storage.
-    const project = getProjectById(projectId);
+    // Load the parent project.
+    const project =
+        getProjectById(projectId);
 
     // Stop if the project could not be found.
     if (!project) {
@@ -300,10 +718,12 @@ function openScene(projectId, chapterId, sceneId) {
     }
 
 
-    // Find the chapter that contains the selected scene.
-    const chapter = project.chapters.find(
-        chapter => chapter.id === chapterId
-    );
+    // Find the chapter containing the selected scene.
+    const chapter =
+        project.chapters.find(
+            chapter =>
+                chapter.id === chapterId
+        );
 
     // Stop if the chapter could not be found.
     if (!chapter) {
@@ -311,10 +731,12 @@ function openScene(projectId, chapterId, sceneId) {
     }
 
 
-    // Find the selected scene inside the chapter.
-    const scene = chapter.scenes.find(
-        scene => scene.id === sceneId
-    );
+    // Find the selected scene.
+    const scene =
+        chapter.scenes.find(
+            scene =>
+                scene.id === sceneId
+        );
 
     // Stop if the scene could not be found.
     if (!scene) {
@@ -322,112 +744,142 @@ function openScene(projectId, chapterId, sceneId) {
     }
 
 
-    // Build the scene editor interface.
-    renderSceneView(app, project, chapter, scene);
+    // Build the editor interface.
+    renderSceneView(
+        app,
+        project,
+        chapter,
+        scene
+    );
 
 
     // ========================================================
     // EDITOR ELEMENTS
     // ========================================================
 
-    // Main TipTap editor container.
-    const editorElement = document.querySelector("#scene-editor");
+    const editorElement =
+        document.querySelector("#scene-editor");
 
-    // Navigation and save controls.
-    const backButton = document.querySelector("#back-to-chapter");
-    const saveButton = document.querySelector("#save-scene");
+    const backButton =
+        document.querySelector("#back-to-chapter");
 
-    // Displays autosave status beneath the editor.
-    const saveStatus = document.querySelector("#scene-save-status");
+    const saveButton =
+        document.querySelector("#save-scene");
 
-    // Displays the live scene word count beneath the editor.
-    const sceneWordCount = document.querySelector("#scene-word-count");
+    const saveStatus =
+        document.querySelector("#scene-save-status");
+
+    const sceneWordCount =
+        document.querySelector("#scene-word-count");
+
+
+    // Active scene record controls.
+    const renameSceneButton =
+        document.querySelector(".rename-scene");
+
+    const deleteSceneButton =
+        document.querySelector(".delete-scene");
 
 
     // Basic formatting controls.
-    const boldButton = document.querySelector("#editor-bold");
-    const italicButton = document.querySelector("#editor-italic");
-    const underlineButton = document.querySelector("#editor-underline");
+    const boldButton =
+        document.querySelector("#editor-bold");
+
+    const italicButton =
+        document.querySelector("#editor-italic");
+
+    const underlineButton =
+        document.querySelector("#editor-underline");
 
 
     // Alignment controls.
-    const alignLeftButton = document.querySelector("#editor-align-left");
-    const alignCenterButton = document.querySelector("#editor-align-center");
-    const alignRightButton = document.querySelector("#editor-align-right");
-    const alignJustifyButton = document.querySelector("#editor-align-justify");
+    const alignLeftButton =
+        document.querySelector("#editor-align-left");
+
+    const alignCenterButton =
+        document.querySelector("#editor-align-center");
+
+    const alignRightButton =
+        document.querySelector("#editor-align-right");
+
+    const alignJustifyButton =
+        document.querySelector("#editor-align-justify");
 
 
-    // Manuscript paragraph formatting controls.
-    const firstLineIndentButton = document.querySelector(
-        "#editor-first-line-indent"
-    );
+    // Manuscript formatting controls.
+    const firstLineIndentButton =
+        document.querySelector(
+            "#editor-first-line-indent"
+        );
 
-    const indentButton = document.querySelector("#editor-indent");
-    const outdentButton = document.querySelector("#editor-outdent");
-    const lineSpacingSelect = document.querySelector("#editor-line-spacing");
+    const indentButton =
+        document.querySelector("#editor-indent");
+
+    const outdentButton =
+        document.querySelector("#editor-outdent");
+
+    const lineSpacingSelect =
+        document.querySelector("#editor-line-spacing");
 
 
     // History controls.
-    const undoButton = document.querySelector("#editor-undo");
-    const redoButton = document.querySelector("#editor-redo");
+    const undoButton =
+        document.querySelector("#editor-undo");
+
+    const redoButton =
+        document.querySelector("#editor-redo");
 
 
-    // Desktop sidebar navigation controls.
-    const sidebarChapterButtons = document.querySelectorAll(
-        ".editor-sidebar-chapter"
-    );
+    // Desktop sidebar navigation.
+    const sidebarChapterButtons =
+        document.querySelectorAll(
+            ".editor-sidebar-chapter"
+        );
 
-    const sidebarSceneButtons = document.querySelectorAll(
-        ".editor-sidebar-scene"
-    );
+    const sidebarSceneButtons =
+        document.querySelectorAll(
+            ".editor-sidebar-scene"
+        );
 
 
     // ========================================================
     // TIPTAP EDITOR SETUP
     // ========================================================
 
-    /*
-     * Create the rich-text editor.
-     *
-     * Existing scene HTML is loaded back into the editor.
-     * New scenes receive an empty paragraph.
-     */
     const editor = new Editor({
 
         element: editorElement,
 
         extensions: [
 
-            // Provides standard rich-text formatting.
+            // Standard rich-text formatting.
             StarterKit,
 
-            // Allows paragraphs and headings to be aligned.
+            // Paragraph and heading alignment.
             TextAlign.configure({
-                types: ["heading", "paragraph"]
+                types: [
+                    "heading",
+                    "paragraph"
+                ]
             }),
 
-            /*
-             * Adds StoryForge-specific paragraph formatting.
-             *
-             * Paragraphs can store:
-             * - first-line indentation
-             * - line spacing
-             * - whole-paragraph indentation
-             */
+            // StoryForge manuscript formatting.
             ParagraphFormatting
         ],
 
-        // Load previously saved scene content.
-        content: scene.content || "<p></p>",
+        // Restore previously saved scene content.
+        content:
+            scene.content || "<p></p>",
 
-        /*
-         * Apply temporary styling directly to the editable writing area.
-         * Proper StoryForge CSS will replace this later.
-         */
+        // Temporary editor styling until the CSS pass.
         editorProps: {
+
             attributes: {
+
                 class: "p-3",
-                style: "min-height: 470px; outline: none;"
+
+                style:
+                    "min-height: 470px; outline: none;"
             }
         }
     });
@@ -437,15 +889,12 @@ function openScene(projectId, chapterId, sceneId) {
     // SAVE HELPERS
     // ========================================================
 
-    /*
-     * Save the current TipTap document into the selected scene.
-     */
+    // Save the current TipTap document into the scene record.
     function saveCurrentScene() {
 
-        // Get the complete formatted document as HTML.
-        const content = editor.getHTML();
+        const content =
+            editor.getHTML();
 
-        // Save the scene content and update timestamps.
         updateSceneContent(
             projectId,
             chapterId,
@@ -455,12 +904,11 @@ function openScene(projectId, chapterId, sceneId) {
     }
 
 
-    /*
-     * Change the autosave message displayed beneath the editor.
-     */
+    // Update the autosave status shown beneath the editor.
     function setSaveStatus(message) {
 
-        saveStatus.textContent = message;
+        saveStatus.textContent =
+            message;
     }
 
 
@@ -468,18 +916,10 @@ function openScene(projectId, chapterId, sceneId) {
     // AUTOSAVE STATE
     // ========================================================
 
-    /*
-     * Stores the currently scheduled autosave timer.
-     *
-     * Each new document change cancels the previous timer.
-     */
+    // Stores the currently scheduled autosave timer.
     let autosaveTimeout = null;
 
-
-    /*
-     * Tracks whether the editor contains changes that have not
-     * yet been persisted into localStorage.
-     */
+    // Tracks whether the editor contains unsaved changes.
     let hasUnsavedChanges = false;
 
 
@@ -487,149 +927,138 @@ function openScene(projectId, chapterId, sceneId) {
     // AUTOSAVE
     // ========================================================
 
-    /*
-     * Schedule an automatic save after the author stops editing
-     * for one second.
-     *
-     * This is known as debouncing.
-     *
-     * It prevents StoryForge from writing to localStorage after
-     * every individual keystroke.
-     */
+    // Schedule a save one second after the author stops editing.
     function scheduleAutosave() {
 
-        // Mark the document as containing unsaved changes.
         hasUnsavedChanges = true;
 
-        // Update the visible status.
-        setSaveStatus("Unsaved changes");
+        setSaveStatus(
+            "Unsaved changes"
+        );
 
 
-        /*
-         * Cancel the previous countdown if the author continued typing.
-         */
+        // Restart the timer whenever another change occurs.
         if (autosaveTimeout) {
 
-            clearTimeout(autosaveTimeout);
+            clearTimeout(
+                autosaveTimeout
+            );
         }
 
 
-        // Start a fresh one-second autosave countdown.
         autosaveTimeout = setTimeout(() => {
 
-            // Tell the author that autosave is running.
-            setSaveStatus("Saving...");
+            setSaveStatus(
+                "Saving..."
+            );
 
-            // Persist the latest editor content.
             saveCurrentScene();
 
-            // The document is now saved.
             hasUnsavedChanges = false;
 
-            // Clear the completed timer reference.
             autosaveTimeout = null;
 
-            // Confirm that autosave finished.
-            setSaveStatus("Saved");
+            setSaveStatus(
+                "Saved"
+            );
 
         }, 1000);
     }
 
 
     /*
-     * Immediately complete any pending autosave.
+     * Immediately complete pending autosave work.
      *
-     * This is used before navigation so writing cannot be lost
-     * if the author clicks away before the one-second timer finishes.
+     * Used before navigation, renaming, or deleting.
      */
     function flushAutosave() {
 
-        // Cancel any scheduled autosave timer.
+        // Cancel the waiting timer.
         if (autosaveTimeout) {
 
-            clearTimeout(autosaveTimeout);
+            clearTimeout(
+                autosaveTimeout
+            );
 
             autosaveTimeout = null;
         }
 
 
-        // Save immediately if the editor contains unsaved changes.
+        // Save immediately if changes are waiting.
         if (hasUnsavedChanges) {
 
-            setSaveStatus("Saving...");
+            setSaveStatus(
+                "Saving..."
+            );
 
             saveCurrentScene();
 
             hasUnsavedChanges = false;
 
-            setSaveStatus("Saved");
+            setSaveStatus(
+                "Saved"
+            );
         }
     }
 
 
-    /*
-     * Force an immediate save regardless of whether StoryForge
-     * currently believes the document has unsaved changes.
-     *
-     * Used by the manual Save Scene button.
-     */
+    // Force an immediate save through the manual Save button.
     function saveImmediately() {
 
-        // Cancel any pending autosave.
+        // Cancel any pending autosave timer.
         if (autosaveTimeout) {
 
-            clearTimeout(autosaveTimeout);
+            clearTimeout(
+                autosaveTimeout
+            );
 
             autosaveTimeout = null;
         }
 
-        // Persist the editor's current state immediately.
-        setSaveStatus("Saving...");
+
+        setSaveStatus(
+            "Saving..."
+        );
 
         saveCurrentScene();
 
-        // Everything currently visible is now stored.
         hasUnsavedChanges = false;
 
-        setSaveStatus("Saved");
+        setSaveStatus(
+            "Saved"
+        );
     }
 
 
     // ========================================================
-    // WORD COUNT HELPERS
+    // WORD COUNT
     // ========================================================
 
-    /*
-     * Format a number for display beneath the editor.
-     *
-     * Examples:
-     * 1    -> "1 word"
-     * 1250 -> "1,250 words"
-     */
+    // Format a live word count for display.
     function formatLiveWordCount(count) {
 
-        const label = count === 1
-            ? "word"
-            : "words";
+        const label =
+            count === 1
+                ? "word"
+                : "words";
 
         return `${count.toLocaleString()} ${label}`;
     }
 
 
-    /*
-     * Recalculate the scene word count from the editor's current HTML.
-     */
+    // Recalculate the scene word count from current editor content.
     function updateLiveWordCount() {
 
-        // Get the scene's current formatted HTML from TipTap.
-        const content = editor.getHTML();
+        const content =
+            editor.getHTML();
 
-        // Count only the visible written words.
-        const wordCount = countSceneWords(content);
+        const wordCount =
+            countSceneWords(content);
 
-        // Update the muted word-count display beneath the editor.
         sceneWordCount.textContent =
-            formatLiveWordCount(wordCount);
+            formatLiveWordCount(
+                wordCount
+            );
     }
 
 
@@ -637,10 +1066,7 @@ function openScene(projectId, chapterId, sceneId) {
     // TOOLBAR HELPERS
     // ========================================================
 
-    /*
-     * Add or remove Bootstrap's active class depending on whether
-     * a formatting option is active at the current cursor position.
-     */
+    // Toggle Bootstrap's active state for formatting buttons.
     function setButtonActive(button, isActive) {
 
         button.classList.toggle(
@@ -655,22 +1081,16 @@ function openScene(projectId, chapterId, sceneId) {
     }
 
 
-    /*
-     * Read the custom formatting attributes belonging to the
-     * paragraph containing the current cursor or selection.
-     */
+    // Read custom attributes from the current paragraph.
     function getParagraphAttributes() {
 
-        return editor.getAttributes("paragraph");
+        return editor.getAttributes(
+            "paragraph"
+        );
     }
 
 
-    /*
-     * Convert a stored inch value such as "0.5in" into a number.
-     *
-     * If no valid value exists, treat the paragraph as having
-     * zero additional indentation.
-     */
+    // Read the current whole-paragraph indent as a number.
     function getParagraphIndentAmount() {
 
         const attributes =
@@ -679,6 +1099,7 @@ function openScene(projectId, chapterId, sceneId) {
         const marginLeft =
             attributes.marginLeft;
 
+        // No stored indent means zero.
         if (!marginLeft) {
             return 0;
         }
@@ -686,6 +1107,7 @@ function openScene(projectId, chapterId, sceneId) {
         const amount =
             parseFloat(marginLeft);
 
+        // Protect against malformed stored values.
         if (Number.isNaN(amount)) {
             return 0;
         }
@@ -698,13 +1120,10 @@ function openScene(projectId, chapterId, sceneId) {
     // TOOLBAR STATE
     // ========================================================
 
-    // Keep toolbar controls in sync with the current paragraph.
+    // Keep toolbar controls synchronised with the cursor position.
     function updateToolbarState() {
 
-        // ----------------------------------------------------
-        // BASIC TEXT FORMATTING
-        // ----------------------------------------------------
-
+        // Basic formatting.
         setButtonActive(
             boldButton,
             editor.isActive("bold")
@@ -721,10 +1140,7 @@ function openScene(projectId, chapterId, sceneId) {
         );
 
 
-        // ----------------------------------------------------
-        // TEXT ALIGNMENT
-        // ----------------------------------------------------
-
+        // Text alignment.
         setButtonActive(
             alignLeftButton,
             editor.isActive({
@@ -754,36 +1170,28 @@ function openScene(projectId, chapterId, sceneId) {
         );
 
 
-        // ----------------------------------------------------
-        // MANUSCRIPT PARAGRAPH FORMATTING
-        // ----------------------------------------------------
-
+        // Manuscript paragraph formatting.
         const paragraphAttributes =
             getParagraphAttributes();
 
 
-        // Show whether the current paragraph has a first-line indent.
         setButtonActive(
             firstLineIndentButton,
-            paragraphAttributes.textIndent === "0.5in"
+            paragraphAttributes.textIndent ===
+                "0.5in"
         );
 
 
-        // Match the line-spacing dropdown to the current paragraph.
         lineSpacingSelect.value =
-            paragraphAttributes.lineHeight || "";
+            paragraphAttributes.lineHeight ||
+            "";
 
 
-        // Outdent is unavailable when the paragraph is already at zero.
         outdentButton.disabled =
             getParagraphIndentAmount() <= 0;
 
 
-        // ----------------------------------------------------
-        // UNDO / REDO
-        // ----------------------------------------------------
-
-        // Disable Undo if there is nothing available to undo.
+        // Undo / redo availability.
         undoButton.disabled = !editor
             .can()
             .chain()
@@ -792,7 +1200,6 @@ function openScene(projectId, chapterId, sceneId) {
             .run();
 
 
-        // Disable Redo if there is nothing available to redo.
         redoButton.disabled = !editor
             .can()
             .chain()
@@ -806,14 +1213,14 @@ function openScene(projectId, chapterId, sceneId) {
     // TIPTAP EVENTS
     // ========================================================
 
-    // Refresh toolbar state when the cursor or selection changes.
+    // Refresh toolbar state when the selection changes.
     editor.on(
         "selectionUpdate",
         updateToolbarState
     );
 
 
-    // Refresh toolbar state whenever an editor transaction occurs.
+    // Refresh toolbar state when an editor transaction occurs.
     editor.on(
         "transaction",
         updateToolbarState
@@ -821,10 +1228,10 @@ function openScene(projectId, chapterId, sceneId) {
 
 
     /*
-     * Whenever the actual document changes:
+     * Whenever scene content changes:
      *
-     * - update the word count
-     * - start/restart the autosave timer
+     * - update the live word count
+     * - start or restart autosave
      */
     editor.on("update", () => {
 
@@ -834,7 +1241,7 @@ function openScene(projectId, chapterId, sceneId) {
     });
 
 
-    // Set the correct states when the editor first opens.
+    // Set initial editor state.
     updateToolbarState();
     updateLiveWordCount();
     setSaveStatus("Saved");
@@ -844,392 +1251,515 @@ function openScene(projectId, chapterId, sceneId) {
     // BASIC TEXT FORMATTING
     // ========================================================
 
-    // Toggle bold formatting.
-    boldButton.addEventListener("click", () => {
+    boldButton.addEventListener(
+        "click",
+        () => {
 
-        editor
-            .chain()
-            .focus()
-            .toggleBold()
-            .run();
-    });
-
-
-    // Toggle italic formatting.
-    italicButton.addEventListener("click", () => {
-
-        editor
-            .chain()
-            .focus()
-            .toggleItalic()
-            .run();
-    });
+            editor
+                .chain()
+                .focus()
+                .toggleBold()
+                .run();
+        }
+    );
 
 
-    // Toggle underline formatting.
-    underlineButton.addEventListener("click", () => {
+    italicButton.addEventListener(
+        "click",
+        () => {
 
-        editor
-            .chain()
-            .focus()
-            .toggleUnderline()
-            .run();
-    });
+            editor
+                .chain()
+                .focus()
+                .toggleItalic()
+                .run();
+        }
+    );
+
+
+    underlineButton.addEventListener(
+        "click",
+        () => {
+
+            editor
+                .chain()
+                .focus()
+                .toggleUnderline()
+                .run();
+        }
+    );
 
 
     // ========================================================
     // TEXT ALIGNMENT
     // ========================================================
 
-    // Align the current paragraph to the left.
-    alignLeftButton.addEventListener("click", () => {
+    alignLeftButton.addEventListener(
+        "click",
+        () => {
 
-        editor
-            .chain()
-            .focus()
-            .setTextAlign("left")
-            .run();
-    });
-
-
-    // Centre the current paragraph.
-    alignCenterButton.addEventListener("click", () => {
-
-        editor
-            .chain()
-            .focus()
-            .setTextAlign("center")
-            .run();
-    });
+            editor
+                .chain()
+                .focus()
+                .setTextAlign("left")
+                .run();
+        }
+    );
 
 
-    // Align the current paragraph to the right.
-    alignRightButton.addEventListener("click", () => {
+    alignCenterButton.addEventListener(
+        "click",
+        () => {
 
-        editor
-            .chain()
-            .focus()
-            .setTextAlign("right")
-            .run();
-    });
+            editor
+                .chain()
+                .focus()
+                .setTextAlign("center")
+                .run();
+        }
+    );
 
 
-    // Justify the current paragraph.
-    alignJustifyButton.addEventListener("click", () => {
+    alignRightButton.addEventListener(
+        "click",
+        () => {
 
-        editor
-            .chain()
-            .focus()
-            .setTextAlign("justify")
-            .run();
-    });
+            editor
+                .chain()
+                .focus()
+                .setTextAlign("right")
+                .run();
+        }
+    );
+
+
+    alignJustifyButton.addEventListener(
+        "click",
+        () => {
+
+            editor
+                .chain()
+                .focus()
+                .setTextAlign("justify")
+                .run();
+        }
+    );
 
 
     // ========================================================
     // FIRST-LINE INDENT
     // ========================================================
 
-    /*
-     * Toggle a standard manuscript-style 0.5-inch
-     * first-line indent on the current paragraph.
-     */
-    firstLineIndentButton.addEventListener("click", () => {
+    firstLineIndentButton.addEventListener(
+        "click",
+        () => {
 
-        const attributes =
-            getParagraphAttributes();
+            const attributes =
+                getParagraphAttributes();
 
 
-        // Remove the indent if already active, otherwise apply it.
-        const newIndent =
-            attributes.textIndent === "0.5in"
-                ? null
-                : "0.5in";
+            const newIndent =
+                attributes.textIndent ===
+                "0.5in"
+                    ? null
+                    : "0.5in";
 
 
-        editor
-            .chain()
-            .focus()
-            .updateAttributes(
-                "paragraph",
-                {
-                    textIndent: newIndent
-                }
-            )
-            .run();
-    });
+            editor
+                .chain()
+                .focus()
+                .updateAttributes(
+                    "paragraph",
+                    {
+                        textIndent:
+                            newIndent
+                    }
+                )
+                .run();
+        }
+    );
 
 
     // ========================================================
     // WHOLE-PARAGRAPH INDENTATION
     // ========================================================
 
-    // Increase the entire paragraph indent by half an inch.
-    indentButton.addEventListener("click", () => {
+    indentButton.addEventListener(
+        "click",
+        () => {
 
-        const currentIndent =
-            getParagraphIndentAmount();
+            const currentIndent =
+                getParagraphIndentAmount();
 
-        const newIndent =
-            currentIndent + 0.5;
-
-
-        editor
-            .chain()
-            .focus()
-            .updateAttributes(
-                "paragraph",
-                {
-                    marginLeft: `${newIndent}in`
-                }
-            )
-            .run();
-    });
+            const newIndent =
+                currentIndent + 0.5;
 
 
-    // Decrease the entire paragraph indent by half an inch.
-    outdentButton.addEventListener("click", () => {
-
-        const currentIndent =
-            getParagraphIndentAmount();
-
-
-        // Prevent indentation from becoming negative.
-        const newIndent = Math.max(
-            0,
-            currentIndent - 0.5
-        );
-
-
-        /*
-         * Remove the style entirely when returning to zero indent.
-         */
-        const marginLeft =
-            newIndent === 0
-                ? null
-                : `${newIndent}in`;
+            editor
+                .chain()
+                .focus()
+                .updateAttributes(
+                    "paragraph",
+                    {
+                        marginLeft:
+                            `${newIndent}in`
+                    }
+                )
+                .run();
+        }
+    );
 
 
-        editor
-            .chain()
-            .focus()
-            .updateAttributes(
-                "paragraph",
-                {
-                    marginLeft: marginLeft
-                }
-            )
-            .run();
-    });
+    outdentButton.addEventListener(
+        "click",
+        () => {
+
+            const currentIndent =
+                getParagraphIndentAmount();
+
+
+            const newIndent =
+                Math.max(
+                    0,
+                    currentIndent - 0.5
+                );
+
+
+            const marginLeft =
+                newIndent === 0
+                    ? null
+                    : `${newIndent}in`;
+
+
+            editor
+                .chain()
+                .focus()
+                .updateAttributes(
+                    "paragraph",
+                    {
+                        marginLeft:
+                            marginLeft
+                    }
+                )
+                .run();
+        }
+    );
 
 
     // ========================================================
     // LINE SPACING
     // ========================================================
 
-    // Apply the selected line spacing to the current paragraph.
-    lineSpacingSelect.addEventListener("change", () => {
+    lineSpacingSelect.addEventListener(
+        "change",
+        () => {
 
-        const selectedSpacing =
-            lineSpacingSelect.value;
-
-
-        /*
-         * An empty value represents normal/default spacing,
-         * so no line-height style needs to be stored.
-         */
-        const lineHeight =
-            selectedSpacing === ""
-                ? null
-                : selectedSpacing;
+            const selectedSpacing =
+                lineSpacingSelect.value;
 
 
-        editor
-            .chain()
-            .focus()
-            .updateAttributes(
-                "paragraph",
-                {
-                    lineHeight: lineHeight
-                }
-            )
-            .run();
-    });
+            const lineHeight =
+                selectedSpacing === ""
+                    ? null
+                    : selectedSpacing;
+
+
+            editor
+                .chain()
+                .focus()
+                .updateAttributes(
+                    "paragraph",
+                    {
+                        lineHeight:
+                            lineHeight
+                    }
+                )
+                .run();
+        }
+    );
 
 
     // ========================================================
     // UNDO AND REDO
     // ========================================================
 
-    // Undo the most recent editor change.
-    undoButton.addEventListener("click", () => {
+    undoButton.addEventListener(
+        "click",
+        () => {
 
-        editor
-            .chain()
-            .focus()
-            .undo()
-            .run();
-    });
+            editor
+                .chain()
+                .focus()
+                .undo()
+                .run();
+        }
+    );
 
 
-    // Redo the most recently undone change.
-    redoButton.addEventListener("click", () => {
+    redoButton.addEventListener(
+        "click",
+        () => {
 
-        editor
-            .chain()
-            .focus()
-            .redo()
-            .run();
-    });
+            editor
+                .chain()
+                .focus()
+                .redo()
+                .run();
+        }
+    );
 
 
     // ========================================================
     // MANUAL SAVE
     // ========================================================
 
-    /*
-     * Keep the manual Save Scene button as an immediate override.
-     *
-     * Autosave means the author normally does not need to use it.
-     */
-    saveButton.addEventListener("click", () => {
+    saveButton.addEventListener(
+        "click",
+        () => {
 
-        // Persist immediately rather than waiting for autosave.
-        saveImmediately();
+            // Save immediately.
+            saveImmediately();
 
 
-        // Give an additional visual confirmation on the button itself.
-        saveButton.textContent = "Saved ✓";
+            // Give additional visual confirmation.
+            saveButton.textContent =
+                "Saved ✓";
 
 
-        // Return the button to its normal label shortly afterward.
-        setTimeout(() => {
+            setTimeout(() => {
 
-            if (saveButton.isConnected) {
+                if (
+                    saveButton.isConnected
+                ) {
 
-                saveButton.textContent =
-                    "Save Scene";
-            }
+                    saveButton.textContent =
+                        "Save Scene";
+                }
 
-        }, 1200);
-    });
-
-
-    // ========================================================
-    // DESKTOP SIDEBAR CHAPTER NAVIGATION
-    // ========================================================
-
-    /*
-     * Allow the author to jump directly to any chapter from
-     * the desktop editor sidebar.
-     */
-    sidebarChapterButtons.forEach((chapterButton) => {
-
-        chapterButton.addEventListener("click", () => {
-
-            // Read the chapter selected in the sidebar.
-            const targetChapterId =
-                chapterButton.dataset.chapterId;
-
-
-            /*
-             * Immediately complete any pending autosave before leaving.
-             */
-            flushAutosave();
-
-
-            // Clean up the current TipTap editor instance.
-            editor.destroy();
-
-
-            // Open the selected chapter.
-            openChapter(
-                projectId,
-                targetChapterId
-            );
-        });
-    });
+            }, 1200);
+        }
+    );
 
 
     // ========================================================
-    // DESKTOP SIDEBAR SCENE NAVIGATION
+    // RENAME CURRENT SCENE
     // ========================================================
 
-    /*
-     * Allow the author to jump directly between scenes,
-     * including scenes belonging to another chapter.
-     */
-    sidebarSceneButtons.forEach((sceneButton) => {
+    renameSceneButton.addEventListener(
+        "click",
+        () => {
 
-        sceneButton.addEventListener("click", () => {
-
-            // Read the destination chapter and scene IDs.
-            const targetChapterId =
-                sceneButton.dataset.chapterId;
-
-            const targetSceneId =
-                sceneButton.dataset.sceneId;
+            // Ask for the replacement title.
+            const newTitle =
+                window.prompt(
+                    "Rename scene:",
+                    scene.title
+                );
 
 
-            /*
-             * Do nothing if the current scene was clicked again.
-             *
-             * Rebuilding the current editor would accomplish
-             * nothing except upsetting JavaScript for sport.
-             */
-            if (
-                targetChapterId === chapterId &&
-                targetSceneId === sceneId
-            ) {
+            // Cancel was selected.
+            if (newTitle === null) {
                 return;
             }
 
 
-            // Complete any pending autosave before switching scenes.
+            /*
+             * Save any pending writing before modifying
+             * the scene record.
+             */
             flushAutosave();
 
 
-            // Destroy the current TipTap editor instance.
+            // Rename the scene.
+            const renamedScene =
+                renameScene(
+                    projectId,
+                    chapterId,
+                    sceneId,
+                    newTitle
+                );
+
+
+            // Stop if the title was invalid.
+            if (!renamedScene) {
+                return;
+            }
+
+
+            // Clean up the current editor instance.
             editor.destroy();
 
 
-            // Open the selected scene directly.
+            // Re-open the same scene with its new title.
             openScene(
                 projectId,
-                targetChapterId,
-                targetSceneId
+                chapterId,
+                sceneId
             );
-        });
-    });
+        }
+    );
+
+
+    // ========================================================
+    // DELETE CURRENT SCENE
+    // ========================================================
+
+    deleteSceneButton.addEventListener(
+        "click",
+        () => {
+
+            // Require explicit confirmation.
+            const confirmed =
+                window.confirm(
+                    `Delete "${scene.title}"?\n\n` +
+                    "This will permanently delete this scene " +
+                    "and all of its written content."
+                );
+
+
+            // Leave the scene untouched if cancelled.
+            if (!confirmed) {
+                return;
+            }
+
+
+            /*
+             * Complete pending autosave first so no timer
+             * remains active after the editor is destroyed.
+             */
+            flushAutosave();
+
+
+            // Destroy TipTap before removing the scene.
+            editor.destroy();
+
+
+            // Permanently delete the scene.
+            deleteScene(
+                projectId,
+                chapterId,
+                sceneId
+            );
+
+
+            // Return to the parent chapter.
+            openChapter(
+                projectId,
+                chapterId
+            );
+        }
+    );
+
+
+    // ========================================================
+    // SIDEBAR CHAPTER NAVIGATION
+    // ========================================================
+
+    sidebarChapterButtons.forEach(
+        (chapterButton) => {
+
+            chapterButton.addEventListener(
+                "click",
+                () => {
+
+                    const targetChapterId =
+                        chapterButton
+                            .dataset
+                            .chapterId;
+
+
+                    // Save pending writing before leaving.
+                    flushAutosave();
+
+                    // Clean up TipTap.
+                    editor.destroy();
+
+                    // Open the selected chapter.
+                    openChapter(
+                        projectId,
+                        targetChapterId
+                    );
+                }
+            );
+        }
+    );
+
+
+    // ========================================================
+    // SIDEBAR SCENE NAVIGATION
+    // ========================================================
+
+    sidebarSceneButtons.forEach(
+        (sceneButton) => {
+
+            sceneButton.addEventListener(
+                "click",
+                () => {
+
+                    const targetChapterId =
+                        sceneButton
+                            .dataset
+                            .chapterId;
+
+                    const targetSceneId =
+                        sceneButton
+                            .dataset
+                            .sceneId;
+
+
+                    /*
+                     * Do nothing if the current scene
+                     * was clicked again.
+                     */
+                    if (
+                        targetChapterId ===
+                            chapterId &&
+                        targetSceneId ===
+                            sceneId
+                    ) {
+                        return;
+                    }
+
+
+                    // Save pending writing before switching.
+                    flushAutosave();
+
+                    // Destroy the current editor.
+                    editor.destroy();
+
+                    // Open the selected scene.
+                    openScene(
+                        projectId,
+                        targetChapterId,
+                        targetSceneId
+                    );
+                }
+            );
+        }
+    );
 
 
     // ========================================================
     // BACK NAVIGATION
     // ========================================================
 
-    // Return to the chapter that contains this scene.
-    backButton.addEventListener("click", () => {
+    backButton.addEventListener(
+        "click",
+        () => {
 
-        /*
-         * Complete any pending autosave before leaving the editor.
-         *
-         * Even if the author types something and immediately clicks
-         * Back before the one-second timer finishes, the writing survives.
-         */
-        flushAutosave();
+            // Complete pending autosave before leaving.
+            flushAutosave();
 
+            // Clean up TipTap.
+            editor.destroy();
 
-        /*
-         * Destroy the TipTap instance before replacing the editor view.
-         */
-        editor.destroy();
-
-
-        // Return to the chapter containing the scene.
-        openChapter(
-            projectId,
-            chapterId
-        );
-    });
+            // Return to the current chapter.
+            openChapter(
+                projectId,
+                chapterId
+            );
+        }
+    );
 }
 
 
