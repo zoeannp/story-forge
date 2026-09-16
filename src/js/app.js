@@ -10,11 +10,15 @@
 import { Editor } from "@tiptap/core";
 
 // StarterKit provides common formatting features such as:
-// bold, italic, underline, lists, headings, undo, and redo.
+// bold, italic, underline, headings, lists, undo, and redo.
 import StarterKit from "@tiptap/starter-kit";
 
 // Adds paragraph and heading alignment controls.
 import TextAlign from "@tiptap/extension-text-align";
+
+// Adds StoryForge's custom manuscript paragraph formatting.
+// This includes first-line indent, line spacing, and paragraph indent.
+import { ParagraphFormatting } from "./editorExtensions.js";
 
 
 // ============================================================
@@ -344,6 +348,16 @@ function openScene(projectId, chapterId, sceneId) {
     const alignJustifyButton = document.querySelector("#editor-align-justify");
 
 
+    // Manuscript paragraph formatting controls.
+    const firstLineIndentButton = document.querySelector(
+        "#editor-first-line-indent"
+    );
+
+    const indentButton = document.querySelector("#editor-indent");
+    const outdentButton = document.querySelector("#editor-outdent");
+    const lineSpacingSelect = document.querySelector("#editor-line-spacing");
+
+
     // History controls.
     const undoButton = document.querySelector("#editor-undo");
     const redoButton = document.querySelector("#editor-redo");
@@ -365,20 +379,30 @@ function openScene(projectId, chapterId, sceneId) {
 
         extensions: [
 
-            // Provides bold, italic, underline, undo, redo, and other basics.
+            // Provides standard rich-text formatting.
             StarterKit,
 
-            // Allow paragraphs and headings to be aligned.
+            // Allows paragraphs and headings to be aligned.
             TextAlign.configure({
                 types: ["heading", "paragraph"]
-            })
+            }),
+
+            /*
+             * Adds StoryForge-specific paragraph formatting.
+             *
+             * Paragraphs can now store:
+             * - first-line indentation
+             * - line spacing
+             * - whole-paragraph indentation
+             */
+            ParagraphFormatting
         ],
 
         // Load previously saved scene content.
         content: scene.content || "<p></p>",
 
         /*
-         * Apply temporary editor styling directly to the editable area.
+         * Apply temporary styling directly to the editable writing area.
          * Proper StoryForge CSS will replace this later.
          */
         editorProps: {
@@ -391,12 +415,12 @@ function openScene(projectId, chapterId, sceneId) {
 
 
     // ========================================================
-    // TOOLBAR STATE
+    // TOOLBAR HELPERS
     // ========================================================
 
     /*
-     * Add or remove Bootstrap's "active" class depending on
-     * whether a formatting option is currently active.
+     * Add or remove Bootstrap's active class depending on whether
+     * a formatting option is active at the current cursor position.
      */
     function setButtonActive(button, isActive) {
 
@@ -409,10 +433,53 @@ function openScene(projectId, chapterId, sceneId) {
     }
 
 
-    // Keep the toolbar in sync with the current cursor position or selection.
+    /*
+     * Read the custom formatting attributes belonging to the
+     * paragraph containing the current cursor or selection.
+     */
+    function getParagraphAttributes() {
+
+        return editor.getAttributes("paragraph");
+    }
+
+
+    /*
+     * Convert a stored inch value such as "0.5in" into a number.
+     *
+     * If no valid value exists, treat the paragraph as having
+     * zero additional indentation.
+     */
+    function getParagraphIndentAmount() {
+
+        const attributes = getParagraphAttributes();
+
+        const marginLeft = attributes.marginLeft;
+
+        if (!marginLeft) {
+            return 0;
+        }
+
+        const amount = parseFloat(marginLeft);
+
+        if (Number.isNaN(amount)) {
+            return 0;
+        }
+
+        return amount;
+    }
+
+
+    // ========================================================
+    // TOOLBAR STATE
+    // ========================================================
+
+    // Keep toolbar controls in sync with the current paragraph.
     function updateToolbarState() {
 
-        // Text formatting state.
+        // ----------------------------------------------------
+        // BASIC TEXT FORMATTING
+        // ----------------------------------------------------
+
         setButtonActive(
             boldButton,
             editor.isActive("bold")
@@ -429,7 +496,10 @@ function openScene(projectId, chapterId, sceneId) {
         );
 
 
-        // Paragraph alignment state.
+        // ----------------------------------------------------
+        // TEXT ALIGNMENT
+        // ----------------------------------------------------
+
         setButtonActive(
             alignLeftButton,
             editor.isActive({ textAlign: "left" })
@@ -451,7 +521,45 @@ function openScene(projectId, chapterId, sceneId) {
         );
 
 
-        // Disable Undo or Redo when there is nothing available to undo or redo.
+        // ----------------------------------------------------
+        // MANUSCRIPT PARAGRAPH FORMATTING
+        // ----------------------------------------------------
+
+        const paragraphAttributes = getParagraphAttributes();
+
+        /*
+         * First Line appears active whenever the current paragraph
+         * is using StoryForge's 0.5-inch manuscript indent.
+         */
+        setButtonActive(
+            firstLineIndentButton,
+            paragraphAttributes.textIndent === "0.5in"
+        );
+
+
+        /*
+         * Keep the line-spacing dropdown matched to the current
+         * paragraph's stored lineHeight value.
+         *
+         * An empty string represents normal/default spacing.
+         */
+        lineSpacingSelect.value =
+            paragraphAttributes.lineHeight || "";
+
+
+        /*
+         * Disable Outdent when the paragraph is already at
+         * the normal left margin.
+         */
+        outdentButton.disabled =
+            getParagraphIndentAmount() <= 0;
+
+
+        // ----------------------------------------------------
+        // UNDO / REDO
+        // ----------------------------------------------------
+
+        // Disable Undo if there is nothing available to undo.
         undoButton.disabled = !editor
             .can()
             .chain()
@@ -459,6 +567,7 @@ function openScene(projectId, chapterId, sceneId) {
             .undo()
             .run();
 
+        // Disable Redo if there is nothing available to redo.
         redoButton.disabled = !editor
             .can()
             .chain()
@@ -468,13 +577,13 @@ function openScene(projectId, chapterId, sceneId) {
     }
 
 
-    // Refresh toolbar state when the selection changes.
+    // Refresh toolbar state when the cursor or selection changes.
     editor.on("selectionUpdate", updateToolbarState);
 
     // Refresh toolbar state whenever the document changes.
     editor.on("transaction", updateToolbarState);
 
-    // Set the correct button states when the editor first opens.
+    // Set the correct toolbar state when the editor first opens.
     updateToolbarState();
 
 
@@ -564,6 +673,150 @@ function openScene(projectId, chapterId, sceneId) {
 
 
     // ========================================================
+    // FIRST-LINE INDENT
+    // ========================================================
+
+    /*
+     * Toggle a standard manuscript-style 0.5-inch
+     * first-line indent on the current paragraph.
+     */
+    firstLineIndentButton.addEventListener("click", () => {
+
+        const attributes = getParagraphAttributes();
+
+        /*
+         * If the paragraph is already indented, remove the indent.
+         * Otherwise apply the standard 0.5-inch indent.
+         */
+        const newIndent =
+            attributes.textIndent === "0.5in"
+                ? null
+                : "0.5in";
+
+        editor
+            .chain()
+            .focus()
+            .updateAttributes(
+                "paragraph",
+                {
+                    textIndent: newIndent
+                }
+            )
+            .run();
+    });
+
+
+    // ========================================================
+    // WHOLE-PARAGRAPH INDENTATION
+    // ========================================================
+
+    /*
+     * Increase the left indentation of the entire paragraph.
+     *
+     * Each click moves the paragraph by another 0.5 inches.
+     */
+    indentButton.addEventListener("click", () => {
+
+        const currentIndent = getParagraphIndentAmount();
+
+        // Increase the paragraph indent by half an inch.
+        const newIndent = currentIndent + 0.5;
+
+        editor
+            .chain()
+            .focus()
+            .updateAttributes(
+                "paragraph",
+                {
+                    marginLeft: `${newIndent}in`
+                }
+            )
+            .run();
+    });
+
+
+    /*
+     * Reduce the left indentation of the entire paragraph.
+     *
+     * The paragraph cannot move further left than its normal margin.
+     */
+    outdentButton.addEventListener("click", () => {
+
+        const currentIndent = getParagraphIndentAmount();
+
+        // Reduce the indent by half an inch.
+        const newIndent = Math.max(
+            0,
+            currentIndent - 0.5
+        );
+
+
+        /*
+         * Store null when the paragraph returns to zero indent.
+         * This prevents unnecessary margin-left styles being saved.
+         */
+        const marginLeft =
+            newIndent === 0
+                ? null
+                : `${newIndent}in`;
+
+
+        editor
+            .chain()
+            .focus()
+            .updateAttributes(
+                "paragraph",
+                {
+                    marginLeft: marginLeft
+                }
+            )
+            .run();
+    });
+
+
+    // ========================================================
+    // LINE SPACING
+    // ========================================================
+
+    // Apply the selected line spacing to the current paragraph.
+    lineSpacingSelect.addEventListener("change", () => {
+
+        /*
+         * Values may be:
+         *
+         * ""     = normal/default spacing
+         * "1"    = single spacing
+         * "1.15" = slightly increased spacing
+         * "1.5"  = one-and-a-half spacing
+         * "2"    = double spacing
+         */
+        const selectedSpacing = lineSpacingSelect.value;
+
+
+        /*
+         * Use null for Normal so no unnecessary line-height
+         * style is written into the saved HTML.
+         */
+        const lineHeight =
+            selectedSpacing === ""
+                ? null
+                : selectedSpacing;
+
+
+        editor
+            .chain()
+            .focus()
+            .updateAttributes(
+                "paragraph",
+                {
+                    lineHeight: lineHeight
+                }
+            )
+            .run();
+    });
+
+
+    // ========================================================
     // UNDO AND REDO
     // ========================================================
 
@@ -597,10 +850,18 @@ function openScene(projectId, chapterId, sceneId) {
     saveButton.addEventListener("click", () => {
 
         /*
-         * getHTML() preserves formatting such as:
-         * bold, italic, underline, and paragraph alignment.
+         * getHTML() preserves formatting including:
+         *
+         * - bold
+         * - italic
+         * - underline
+         * - text alignment
+         * - first-line indentation
+         * - paragraph indentation
+         * - line spacing
          */
         const content = editor.getHTML();
+
 
         // Save the formatted scene content.
         updateSceneContent(
@@ -611,16 +872,19 @@ function openScene(projectId, chapterId, sceneId) {
         );
 
 
-        // Give the user a small confirmation that the save completed.
+        // Give the user confirmation that the save completed.
         saveButton.textContent = "Saved ✓";
 
-        /*
-         * Return the button to its normal label shortly afterward.
-         * Check that the button still exists first in case the user navigated away.
-         */
+
+        // Return the button to its normal label shortly afterward.
         setTimeout(() => {
 
+            /*
+             * Check that the button still exists before changing it.
+             * The user may have navigated away during the timeout.
+             */
             if (saveButton.isConnected) {
+
                 saveButton.textContent = "Save Scene";
             }
 
@@ -637,7 +901,7 @@ function openScene(projectId, chapterId, sceneId) {
 
         /*
          * Destroy the TipTap instance before replacing the editor view.
-         * This cleans up TipTap's event listeners and DOM bindings.
+         * This removes TipTap's event listeners and DOM bindings.
          */
         editor.destroy();
 

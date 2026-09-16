@@ -33,7 +33,10 @@ export function renderCreateProjectForm(container) {
 
                 </div>
 
-                <button type="submit" class="btn btn-primary">
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                >
                     Create Project
                 </button>
 
@@ -159,7 +162,10 @@ export function renderProjectView(container, project) {
 
                 </div>
 
-                <button type="submit" class="btn btn-primary">
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                >
                     Add Chapter
                 </button>
 
@@ -275,7 +281,10 @@ export function renderChapterView(container, project, chapter) {
 
                 </div>
 
-                <button type="submit" class="btn btn-primary">
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                >
                     Add Scene
                 </button>
 
@@ -365,7 +374,7 @@ export function renderSceneView(container, project, chapter, scene) {
             <!-- Display the selected scene's title. -->
             <h1>${scene.title}</h1>
 
-            <!-- Show where the scene sits inside the project structure. -->
+            <!-- Show the scene's location inside the project structure. -->
             <p class="text-muted">
                 ${project.title} / ${chapter.title}
             </p>
@@ -373,43 +382,63 @@ export function renderSceneView(container, project, chapter, scene) {
             <hr>
 
 
+            <!-- ====================================================== -->
+            <!-- RICH-TEXT TOOLBAR -->
+            <!-- ====================================================== -->
+
             <!--
                 Formatting toolbar for the TipTap editor.
-                The buttons will be connected to TipTap commands in app.js.
+                app.js connects these controls to TipTap commands.
             -->
             <div
                 id="scene-editor-toolbar"
-                class="btn-toolbar gap-2 mb-3"
+                class="d-flex flex-wrap gap-2 mb-3"
                 role="toolbar"
                 aria-label="Scene formatting toolbar"
             >
 
-                <!-- Basic text formatting controls. -->
-                <div class="btn-group" role="group">
 
+                <!-- ================================================== -->
+                <!-- BASIC TEXT FORMATTING -->
+                <!-- ================================================== -->
+
+                <div
+                    class="btn-group"
+                    role="group"
+                    aria-label="Text formatting"
+                >
+
+                    <!-- Toggle bold formatting. -->
                     <button
                         id="editor-bold"
                         class="btn btn-outline-secondary"
                         type="button"
                         title="Bold"
+                        aria-label="Bold"
                     >
                         <strong>B</strong>
                     </button>
 
+
+                    <!-- Toggle italic formatting. -->
                     <button
                         id="editor-italic"
                         class="btn btn-outline-secondary"
                         type="button"
                         title="Italic"
+                        aria-label="Italic"
                     >
                         <em>I</em>
                     </button>
 
+
+                    <!-- Toggle underline formatting. -->
                     <button
                         id="editor-underline"
                         class="btn btn-outline-secondary"
                         type="button"
                         title="Underline"
+                        aria-label="Underline"
                     >
                         <u>U</u>
                     </button>
@@ -417,9 +446,17 @@ export function renderSceneView(container, project, chapter, scene) {
                 </div>
 
 
-                <!-- Paragraph alignment controls. -->
-                <div class="btn-group" role="group">
+                <!-- ================================================== -->
+                <!-- TEXT ALIGNMENT -->
+                <!-- ================================================== -->
 
+                <div
+                    class="btn-group"
+                    role="group"
+                    aria-label="Text alignment"
+                >
+
+                    <!-- Align the current paragraph to the left. -->
                     <button
                         id="editor-align-left"
                         class="btn btn-outline-secondary"
@@ -429,6 +466,8 @@ export function renderSceneView(container, project, chapter, scene) {
                         Left
                     </button>
 
+
+                    <!-- Centre the current paragraph. -->
                     <button
                         id="editor-align-center"
                         class="btn btn-outline-secondary"
@@ -438,6 +477,8 @@ export function renderSceneView(container, project, chapter, scene) {
                         Centre
                     </button>
 
+
+                    <!-- Align the current paragraph to the right. -->
                     <button
                         id="editor-align-right"
                         class="btn btn-outline-secondary"
@@ -447,6 +488,8 @@ export function renderSceneView(container, project, chapter, scene) {
                         Right
                     </button>
 
+
+                    <!-- Justify the current paragraph. -->
                     <button
                         id="editor-align-justify"
                         class="btn btn-outline-secondary"
@@ -459,9 +502,118 @@ export function renderSceneView(container, project, chapter, scene) {
                 </div>
 
 
-                <!-- Undo and redo controls. -->
-                <div class="btn-group" role="group">
+                <!-- ================================================== -->
+                <!-- MANUSCRIPT INDENTATION -->
+                <!-- ================================================== -->
 
+                <div
+                    class="btn-group"
+                    role="group"
+                    aria-label="Paragraph indentation"
+                >
+
+                    <!--
+                        Toggle a manuscript-style first-line indent.
+                        The default value will be 0.5 inches.
+                    -->
+                    <button
+                        id="editor-first-line-indent"
+                        class="btn btn-outline-secondary"
+                        type="button"
+                        title="First-line indent"
+                    >
+                        First Line
+                    </button>
+
+
+                    <!--
+                        Move the entire paragraph further from the left margin.
+                    -->
+                    <button
+                        id="editor-indent"
+                        class="btn btn-outline-secondary"
+                        type="button"
+                        title="Increase paragraph indent"
+                    >
+                        Indent
+                    </button>
+
+
+                    <!--
+                        Move the entire paragraph back toward the left margin.
+                    -->
+                    <button
+                        id="editor-outdent"
+                        class="btn btn-outline-secondary"
+                        type="button"
+                        title="Decrease paragraph indent"
+                    >
+                        Outdent
+                    </button>
+
+                </div>
+
+
+                <!-- ================================================== -->
+                <!-- LINE SPACING -->
+                <!-- ================================================== -->
+
+                <!--
+                    Select the line spacing used by the current paragraph.
+                    The selected value will be stored in TipTap's paragraph data.
+                -->
+                <div class="input-group" style="width: auto;">
+
+                    <label
+                        class="input-group-text"
+                        for="editor-line-spacing"
+                    >
+                        Line Spacing
+                    </label>
+
+                    <select
+                        id="editor-line-spacing"
+                        class="form-select"
+                        aria-label="Line spacing"
+                    >
+
+                        <!-- Browser/default line spacing. -->
+                        <option value="">
+                            Normal
+                        </option>
+
+                        <option value="1">
+                            1.0
+                        </option>
+
+                        <option value="1.15">
+                            1.15
+                        </option>
+
+                        <option value="1.5">
+                            1.5
+                        </option>
+
+                        <option value="2">
+                            2.0
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <!-- ================================================== -->
+                <!-- HISTORY CONTROLS -->
+                <!-- ================================================== -->
+
+                <div
+                    class="btn-group"
+                    role="group"
+                    aria-label="Editor history"
+                >
+
+                    <!-- Undo the previous editor change. -->
                     <button
                         id="editor-undo"
                         class="btn btn-outline-secondary"
@@ -471,6 +623,8 @@ export function renderSceneView(container, project, chapter, scene) {
                         Undo
                     </button>
 
+
+                    <!-- Redo the previous undone change. -->
                     <button
                         id="editor-redo"
                         class="btn btn-outline-secondary"
@@ -485,9 +639,14 @@ export function renderSceneView(container, project, chapter, scene) {
             </div>
 
 
+            <!-- ====================================================== -->
+            <!-- TIPTAP WRITING AREA -->
+            <!-- ====================================================== -->
+
             <!--
-                TipTap will mount its editable writing area inside this element.
-                The editor itself will be created in app.js.
+                TipTap mounts its editable document inside this element.
+                Proper StoryForge CSS will replace the temporary Bootstrap
+                styling later in development.
             -->
             <div
                 id="scene-editor"
@@ -496,7 +655,11 @@ export function renderSceneView(container, project, chapter, scene) {
             ></div>
 
 
-            <!-- Save the rich-text content currently held by TipTap. -->
+            <!-- ====================================================== -->
+            <!-- SAVE CONTROLS -->
+            <!-- ====================================================== -->
+
+            <!-- Save the current rich-text scene content. -->
             <button
                 id="save-scene"
                 class="btn btn-primary mt-3"
