@@ -1,0 +1,751 @@
+/* ============================================================
+   STORYFORGE
+   Base application styling
+   ============================================================ */
+
+
+/* ============================================================
+   COLOUR PALETTE
+   ============================================================ */
+
+:root {
+
+    /* Main application backgrounds. */
+    --sf-bg: #121212;
+    --sf-surface: #2a2a2a;
+    --sf-surface-hover: #333333;
+
+    /* Borders and muted interface elements. */
+    --sf-border: #3f3f3f;
+
+    /* Main text colours. */
+    --sf-text: #eaeaea;
+    --sf-text-muted: #a8a8a8;
+
+    /* Brand accents. */
+    --sf-plum: #9d174d;
+    --sf-plum-hover: #be185d;
+    --sf-gold: #facc15;
+
+    /* Manuscript editor colours. */
+    --sf-paper: #f4efe6;
+    --sf-paper-border: #d8cfc0;
+    --sf-ink: #211d19;
+
+    /* Destructive actions. */
+    --sf-danger: #b91c1c;
+    --sf-danger-hover: #dc2626;
+
+    /* General sizing. */
+    --sf-radius: 0.65rem;
+
+    /* Soft shadow used throughout the interface. */
+    --sf-shadow:
+        0 0.5rem 1.5rem
+        rgba(0, 0, 0, 0.25);
+}
+
+
+/* ============================================================
+   GLOBAL PAGE STYLES
+   ============================================================ */
+
+html,
+body {
+
+    min-height: 100%;
+}
+
+
+body {
+
+    margin: 0;
+
+    background-color: var(--sf-bg);
+
+    color: var(--sf-text);
+
+    /*
+     * Use the operating system's clean sans-serif font for
+     * normal interface text.
+     *
+     * We can replace this with Inter later if desired.
+     */
+    font-family:
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+}
+
+
+/*
+ * Keep Bootstrap containers sitting naturally on the
+ * StoryForge dark background.
+ */
+#app {
+
+    min-height: 100vh;
+}
+
+
+/* ============================================================
+   HEADINGS AND BRAND TYPOGRAPHY
+   ============================================================ */
+
+/*
+ * Cinzel gives StoryForge its old-world / forged identity
+ * without making normal interface text difficult to read.
+ */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+
+    color: var(--sf-text);
+
+    font-family:
+        "Cinzel",
+        serif;
+
+    font-weight: 700;
+}
+
+
+/*
+ * Give major page headings slightly more visual presence.
+ */
+h1 {
+
+    letter-spacing: 0.035em;
+}
+
+
+/*
+ * Bootstrap sometimes supplies its own muted colour.
+ * Override it so muted text remains readable on dark surfaces.
+ */
+.text-muted {
+
+    color: var(--sf-text-muted) !important;
+}
+
+
+/* ============================================================
+   LINKS
+   ============================================================ */
+
+a {
+
+    color: var(--sf-gold);
+}
+
+
+a:hover {
+
+    color: #fde047;
+}
+
+
+/* ============================================================
+   CARDS
+   ============================================================ */
+
+.card {
+
+    background-color: var(--sf-surface);
+
+    color: var(--sf-text);
+
+    border: 1px solid var(--sf-border);
+
+    border-radius: var(--sf-radius);
+
+    box-shadow: var(--sf-shadow);
+}
+
+
+/*
+ * Smooth interaction for project, chapter, and scene cards.
+ */
+.project-card,
+.chapter-card,
+.scene-card {
+
+    color: inherit;
+
+    transition:
+        background-color 0.2s ease,
+        transform 0.2s ease;
+}
+
+
+.project-card:hover,
+.chapter-card:hover,
+.scene-card:hover {
+
+    color: inherit;
+
+    transform: translateY(-1px);
+}
+
+
+/*
+ * Because the clickable area lives inside the Bootstrap card,
+ * give the card body a subtle hover response.
+ */
+.card:has(.project-card:hover),
+.card:has(.chapter-card:hover),
+.card:has(.scene-card:hover) {
+
+    background-color: var(--sf-surface-hover);
+
+    border-color: var(--sf-plum);
+}
+
+
+/* ============================================================
+   FORMS
+   ============================================================ */
+
+.form-label {
+
+    color: var(--sf-text);
+
+    font-weight: 600;
+}
+
+
+.form-control,
+.form-select {
+
+    background-color: #1c1c1c;
+
+    color: var(--sf-text);
+
+    border: 1px solid var(--sf-border);
+
+    border-radius: var(--sf-radius);
+}
+
+
+.form-control:focus,
+.form-select:focus {
+
+    background-color: #1c1c1c;
+
+    color: var(--sf-text);
+
+    border-color: var(--sf-plum);
+
+    box-shadow:
+        0 0 0 0.2rem
+        rgba(157, 23, 77, 0.2);
+}
+
+
+/*
+ * Make placeholder text readable without competing
+ * with entered content.
+ */
+.form-control::placeholder {
+
+    color: #777777;
+
+    opacity: 1;
+}
+
+
+/*
+ * Keep dropdown options readable when the select opens.
+ */
+.form-select option {
+
+    background-color: var(--sf-surface);
+
+    color: var(--sf-text);
+}
+
+
+/* ============================================================
+   PRIMARY BUTTONS
+   ============================================================ */
+
+.btn-primary {
+
+    background-color: var(--sf-plum);
+
+    border-color: var(--sf-plum);
+
+    color: #ffffff;
+
+    font-weight: 600;
+}
+
+
+.btn-primary:hover,
+.btn-primary:focus {
+
+    background-color: var(--sf-plum-hover);
+
+    border-color: var(--sf-plum-hover);
+
+    color: #ffffff;
+}
+
+
+.btn-primary:focus {
+
+    box-shadow:
+        0 0 0 0.2rem
+        rgba(157, 23, 77, 0.3);
+}
+
+
+/* ============================================================
+   SECONDARY / OUTLINE BUTTONS
+   ============================================================ */
+
+.btn-outline-secondary {
+
+    color: var(--sf-text);
+
+    border-color: var(--sf-border);
+}
+
+
+.btn-outline-secondary:hover {
+
+    background-color: var(--sf-surface-hover);
+
+    color: var(--sf-text);
+
+    border-color: var(--sf-plum);
+}
+
+
+/*
+ * Used by the rich-text toolbar to show that a formatting
+ * option is currently active.
+ */
+.btn-outline-secondary.active {
+
+    background-color: var(--sf-plum);
+
+    color: #ffffff;
+
+    border-color: var(--sf-plum);
+}
+
+
+/* ============================================================
+   DANGER BUTTONS
+   ============================================================ */
+
+.btn-outline-danger {
+
+    color: #f87171;
+
+    border-color: var(--sf-danger);
+}
+
+
+.btn-outline-danger:hover {
+
+    background-color: var(--sf-danger-hover);
+
+    border-color: var(--sf-danger-hover);
+
+    color: #ffffff;
+}
+
+
+/* ============================================================
+   HORIZONTAL RULES
+   ============================================================ */
+
+hr {
+
+    border-color: var(--sf-border);
+
+    opacity: 1;
+}
+
+
+/* ============================================================
+   THREE-DOT ACTION MENUS
+   ============================================================ */
+
+/*
+ * Remove the browser's default disclosure triangle.
+ */
+details > summary {
+
+    list-style: none;
+
+    cursor: pointer;
+}
+
+
+details > summary::-webkit-details-marker {
+
+    display: none;
+}
+
+
+/*
+ * Style the floating menu panel.
+ *
+ * Bootstrap supplies several utility classes already,
+ * so this mainly corrects the colours.
+ */
+details > div {
+
+    background-color: var(--sf-surface) !important;
+
+    border-color: var(--sf-border) !important;
+
+    color: var(--sf-text);
+
+    box-shadow: var(--sf-shadow) !important;
+}
+
+
+/* ============================================================
+   SCENE EDITOR TOOLBAR
+   ============================================================ */
+
+#scene-editor-toolbar {
+
+    padding: 0.75rem;
+
+    background-color: var(--sf-surface);
+
+    border: 1px solid var(--sf-border);
+
+    border-radius: var(--sf-radius);
+}
+
+
+/*
+ * Make toolbar controls slightly more compact than
+ * StoryForge's larger navigation buttons.
+ */
+#scene-editor-toolbar .btn {
+
+    font-size: 0.9rem;
+}
+
+
+/*
+ * Keep the line-spacing control visually connected
+ * to the rest of the toolbar.
+ */
+#scene-editor-toolbar .input-group-text {
+
+    background-color: #1c1c1c;
+
+    color: var(--sf-text);
+
+    border-color: var(--sf-border);
+}
+
+
+/* ============================================================
+   MANUSCRIPT EDITOR
+   ============================================================ */
+
+/*
+ * The editor deliberately uses a light manuscript-style surface.
+ *
+ * This visually separates the author's actual writing from the
+ * surrounding application interface.
+ */
+#scene-editor {
+
+    min-height: 500px;
+
+    padding: 2.5rem !important;
+
+    background-color: var(--sf-paper);
+
+    color: var(--sf-ink);
+
+    border: 1px solid var(--sf-paper-border);
+
+    border-radius: var(--sf-radius);
+
+    box-shadow: var(--sf-shadow);
+
+    /*
+     * A traditional serif font makes long-form writing
+     * more comfortable and manuscript-like.
+     */
+    font-family:
+        Georgia,
+        "Times New Roman",
+        serif;
+
+    font-size: 1.05rem;
+
+    line-height: 1.6;
+}
+
+
+/*
+ * TipTap places the editable ProseMirror document
+ * inside #scene-editor.
+ */
+#scene-editor .ProseMirror {
+
+    min-height: 440px;
+
+    outline: none;
+}
+
+
+/*
+ * Keep paragraphs comfortably spaced while writing.
+ */
+#scene-editor .ProseMirror p {
+
+    margin-top: 0;
+
+    margin-bottom: 0.8rem;
+}
+
+
+/*
+ * Preserve dark manuscript text even if Bootstrap or another
+ * global selector tries to interfere.
+ */
+#scene-editor h1,
+#scene-editor h2,
+#scene-editor h3,
+#scene-editor h4,
+#scene-editor h5,
+#scene-editor h6 {
+
+    color: var(--sf-ink);
+
+    /*
+     * Manuscript headings use the editor's serif family rather
+     * than Cinzel because they are part of the written document.
+     */
+    font-family:
+        Georgia,
+        "Times New Roman",
+        serif;
+}
+
+
+/* ============================================================
+   AUTOSAVE / WORD COUNT FOOTER
+   ============================================================ */
+
+#scene-save-status,
+#scene-word-count {
+
+    font-size: 0.85rem;
+}
+
+
+/*
+ * Give the save state just a hint of the gold accent.
+ */
+#scene-save-status {
+
+    color: var(--sf-gold) !important;
+}
+
+
+/* ============================================================
+   DESKTOP EDITOR SIDEBAR
+   ============================================================ */
+
+#editor-sidebar .card {
+
+    /*
+     * Keep the navigation visible while writing through
+     * longer scenes on desktop.
+     */
+    position: sticky;
+
+    top: 1.5rem;
+
+    max-height: calc(100vh - 3rem);
+
+    overflow-y: auto;
+}
+
+
+/*
+ * Chapter buttons in the sidebar.
+ */
+.editor-sidebar-chapter {
+
+    color: var(--sf-text);
+}
+
+
+.editor-sidebar-chapter:hover {
+
+    background-color: var(--sf-surface-hover);
+
+    color: var(--sf-gold);
+}
+
+
+/* ============================================================
+   SIDEBAR SCENES
+   ============================================================ */
+
+.editor-sidebar-scene {
+
+    background-color: transparent;
+
+    color: var(--sf-text);
+
+    border-color: var(--sf-border);
+}
+
+
+.editor-sidebar-scene:hover {
+
+    background-color: var(--sf-surface-hover);
+
+    color: var(--sf-text);
+}
+
+
+/*
+ * Current scene.
+ */
+.editor-sidebar-scene.active {
+
+    background-color: var(--sf-plum);
+
+    color: #ffffff;
+
+    border-color: var(--sf-plum);
+}
+
+
+/*
+ * Bootstrap's active list items inherit some text colours.
+ * Keep the active scene's secondary information readable.
+ */
+.editor-sidebar-scene.active small {
+
+    color: #f3d9e3 !important;
+}
+
+
+/* ============================================================
+   SCROLLBARS
+   ============================================================ */
+
+/*
+ * Small quality-of-life styling for browsers that support
+ * WebKit scrollbar selectors.
+ */
+::-webkit-scrollbar {
+
+    width: 10px;
+
+    height: 10px;
+}
+
+
+::-webkit-scrollbar-track {
+
+    background-color: var(--sf-bg);
+}
+
+
+::-webkit-scrollbar-thumb {
+
+    background-color: var(--sf-border);
+
+    border-radius: 999px;
+}
+
+
+::-webkit-scrollbar-thumb:hover {
+
+    background-color: var(--sf-plum);
+}
+
+
+/* ============================================================
+   TEXT SELECTION
+   ============================================================ */
+
+::selection {
+
+    background-color: var(--sf-plum);
+
+    color: #ffffff;
+}
+
+
+/*
+ * Use a softer selection colour inside the manuscript page.
+ */
+#scene-editor ::selection {
+
+    background-color: rgba(157, 23, 77, 0.3);
+
+    color: var(--sf-ink);
+}
+
+
+/* ============================================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================================ */
+
+@media (max-width: 991.98px) {
+
+    /*
+     * Give the manuscript editor slightly less padding on
+     * tablets and phones where horizontal space is limited.
+     */
+    #scene-editor {
+
+        padding: 1.5rem !important;
+    }
+
+
+    /*
+     * Let toolbar controls wrap naturally without becoming
+     * enormous on smaller displays.
+     */
+    #scene-editor-toolbar {
+
+        gap: 0.5rem !important;
+    }
+}
+
+
+@media (max-width: 575.98px) {
+
+    #scene-editor {
+
+        padding: 1rem !important;
+
+        font-size: 1rem;
+    }
+
+
+    /*
+     * Slightly reduce major headings so they fit better
+     * on narrow phone displays.
+     */
+    h1 {
+
+        font-size: 1.8rem;
+    }
+}
