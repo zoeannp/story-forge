@@ -1,6 +1,26 @@
 // Coordinates the dashboard, project view, chapter view, scene editor,
 // and user interactions.
 
+
+// ============================================================
+// TIPTAP EDITOR IMPORTS
+// ============================================================
+
+// Core TipTap editor.
+import { Editor } from "@tiptap/core";
+
+// StarterKit provides common formatting features such as:
+// bold, italic, underline, lists, headings, undo, and redo.
+import StarterKit from "@tiptap/starter-kit";
+
+// Adds paragraph and heading alignment controls.
+import TextAlign from "@tiptap/extension-text-align";
+
+
+// ============================================================
+// STORYFORGE IMPORTS
+// ============================================================
+
 import {
     addProject,
     getProjectById,
@@ -109,7 +129,6 @@ function openProject(projectId) {
     const project = getProjectById(projectId);
 
     // Stop if the project could not be found.
-    // This could happen if stored data changed before the project was opened.
     if (!project) {
         return;
     }
@@ -262,7 +281,7 @@ function openChapter(projectId, chapterId) {
 // SCENE EDITOR VIEW
 // ============================================================
 
-// Render one scene and attach handlers for navigation and saving content.
+// Render one scene and attach the TipTap rich-text editor.
 function openScene(projectId, chapterId, sceneId) {
 
     // Load the parent project from storage.
@@ -300,29 +319,290 @@ function openScene(projectId, chapterId, sceneId) {
     renderSceneView(app, project, chapter, scene);
 
 
-    // Get references to the scene editor controls.
+    // ========================================================
+    // EDITOR ELEMENTS
+    // ========================================================
+
+    // Main TipTap editor container.
+    const editorElement = document.querySelector("#scene-editor");
+
+    // Navigation and save controls.
     const backButton = document.querySelector("#back-to-chapter");
-    const sceneEditorForm = document.querySelector("#scene-editor-form");
-    const sceneContentInput = document.querySelector("#scene-content");
+    const saveButton = document.querySelector("#save-scene");
 
 
-    // Return to the chapter that contains this scene.
-    backButton.addEventListener("click", () => {
+    // Basic formatting controls.
+    const boldButton = document.querySelector("#editor-bold");
+    const italicButton = document.querySelector("#editor-italic");
+    const underlineButton = document.querySelector("#editor-underline");
 
-        openChapter(projectId, chapterId);
+
+    // Alignment controls.
+    const alignLeftButton = document.querySelector("#editor-align-left");
+    const alignCenterButton = document.querySelector("#editor-align-center");
+    const alignRightButton = document.querySelector("#editor-align-right");
+    const alignJustifyButton = document.querySelector("#editor-align-justify");
+
+
+    // History controls.
+    const undoButton = document.querySelector("#editor-undo");
+    const redoButton = document.querySelector("#editor-redo");
+
+
+    // ========================================================
+    // TIPTAP EDITOR SETUP
+    // ========================================================
+
+    /*
+     * Create the rich-text editor.
+     *
+     * Existing scene HTML is loaded back into the editor.
+     * New scenes receive an empty paragraph.
+     */
+    const editor = new Editor({
+
+        element: editorElement,
+
+        extensions: [
+
+            // Provides bold, italic, underline, undo, redo, and other basics.
+            StarterKit,
+
+            // Allow paragraphs and headings to be aligned.
+            TextAlign.configure({
+                types: ["heading", "paragraph"]
+            })
+        ],
+
+        // Load previously saved scene content.
+        content: scene.content || "<p></p>",
+
+        /*
+         * Apply temporary editor styling directly to the editable area.
+         * Proper StoryForge CSS will replace this later.
+         */
+        editorProps: {
+            attributes: {
+                class: "p-3",
+                style: "min-height: 470px; outline: none;"
+            }
+        }
     });
 
 
-    // Handle saving the written content of the scene.
-    sceneEditorForm.addEventListener("submit", (event) => {
+    // ========================================================
+    // TOOLBAR STATE
+    // ========================================================
 
-        // Stop the form from refreshing the page.
-        event.preventDefault();
+    /*
+     * Add or remove Bootstrap's "active" class depending on
+     * whether a formatting option is currently active.
+     */
+    function setButtonActive(button, isActive) {
 
-        // Read the current text from the scene editor.
-        const content = sceneContentInput.value;
+        button.classList.toggle("active", isActive);
 
-        // Save the scene content and update its timestamps.
+        button.setAttribute(
+            "aria-pressed",
+            String(isActive)
+        );
+    }
+
+
+    // Keep the toolbar in sync with the current cursor position or selection.
+    function updateToolbarState() {
+
+        // Text formatting state.
+        setButtonActive(
+            boldButton,
+            editor.isActive("bold")
+        );
+
+        setButtonActive(
+            italicButton,
+            editor.isActive("italic")
+        );
+
+        setButtonActive(
+            underlineButton,
+            editor.isActive("underline")
+        );
+
+
+        // Paragraph alignment state.
+        setButtonActive(
+            alignLeftButton,
+            editor.isActive({ textAlign: "left" })
+        );
+
+        setButtonActive(
+            alignCenterButton,
+            editor.isActive({ textAlign: "center" })
+        );
+
+        setButtonActive(
+            alignRightButton,
+            editor.isActive({ textAlign: "right" })
+        );
+
+        setButtonActive(
+            alignJustifyButton,
+            editor.isActive({ textAlign: "justify" })
+        );
+
+
+        // Disable Undo or Redo when there is nothing available to undo or redo.
+        undoButton.disabled = !editor
+            .can()
+            .chain()
+            .focus()
+            .undo()
+            .run();
+
+        redoButton.disabled = !editor
+            .can()
+            .chain()
+            .focus()
+            .redo()
+            .run();
+    }
+
+
+    // Refresh toolbar state when the selection changes.
+    editor.on("selectionUpdate", updateToolbarState);
+
+    // Refresh toolbar state whenever the document changes.
+    editor.on("transaction", updateToolbarState);
+
+    // Set the correct button states when the editor first opens.
+    updateToolbarState();
+
+
+    // ========================================================
+    // BASIC TEXT FORMATTING
+    // ========================================================
+
+    // Toggle bold formatting.
+    boldButton.addEventListener("click", () => {
+
+        editor
+            .chain()
+            .focus()
+            .toggleBold()
+            .run();
+    });
+
+
+    // Toggle italic formatting.
+    italicButton.addEventListener("click", () => {
+
+        editor
+            .chain()
+            .focus()
+            .toggleItalic()
+            .run();
+    });
+
+
+    // Toggle underline formatting.
+    underlineButton.addEventListener("click", () => {
+
+        editor
+            .chain()
+            .focus()
+            .toggleUnderline()
+            .run();
+    });
+
+
+    // ========================================================
+    // TEXT ALIGNMENT
+    // ========================================================
+
+    // Align the current paragraph to the left.
+    alignLeftButton.addEventListener("click", () => {
+
+        editor
+            .chain()
+            .focus()
+            .setTextAlign("left")
+            .run();
+    });
+
+
+    // Centre the current paragraph.
+    alignCenterButton.addEventListener("click", () => {
+
+        editor
+            .chain()
+            .focus()
+            .setTextAlign("center")
+            .run();
+    });
+
+
+    // Align the current paragraph to the right.
+    alignRightButton.addEventListener("click", () => {
+
+        editor
+            .chain()
+            .focus()
+            .setTextAlign("right")
+            .run();
+    });
+
+
+    // Justify the current paragraph.
+    alignJustifyButton.addEventListener("click", () => {
+
+        editor
+            .chain()
+            .focus()
+            .setTextAlign("justify")
+            .run();
+    });
+
+
+    // ========================================================
+    // UNDO AND REDO
+    // ========================================================
+
+    // Undo the most recent editor change.
+    undoButton.addEventListener("click", () => {
+
+        editor
+            .chain()
+            .focus()
+            .undo()
+            .run();
+    });
+
+
+    // Redo the most recently undone change.
+    redoButton.addEventListener("click", () => {
+
+        editor
+            .chain()
+            .focus()
+            .redo()
+            .run();
+    });
+
+
+    // ========================================================
+    // SAVE SCENE
+    // ========================================================
+
+    // Save the scene's formatted HTML into localStorage.
+    saveButton.addEventListener("click", () => {
+
+        /*
+         * getHTML() preserves formatting such as:
+         * bold, italic, underline, and paragraph alignment.
+         */
+        const content = editor.getHTML();
+
+        // Save the formatted scene content.
         updateSceneContent(
             projectId,
             chapterId,
@@ -330,12 +610,38 @@ function openScene(projectId, chapterId, sceneId) {
             content
         );
 
+
+        // Give the user a small confirmation that the save completed.
+        saveButton.textContent = "Saved ✓";
+
         /*
-         * Re-open the scene after saving.
-         * This proves that the content being displayed came back from storage,
-         * rather than only remaining inside the textarea.
+         * Return the button to its normal label shortly afterward.
+         * Check that the button still exists first in case the user navigated away.
          */
-        openScene(projectId, chapterId, sceneId);
+        setTimeout(() => {
+
+            if (saveButton.isConnected) {
+                saveButton.textContent = "Save Scene";
+            }
+
+        }, 1200);
+    });
+
+
+    // ========================================================
+    // NAVIGATION
+    // ========================================================
+
+    // Return to the chapter that contains this scene.
+    backButton.addEventListener("click", () => {
+
+        /*
+         * Destroy the TipTap instance before replacing the editor view.
+         * This cleans up TipTap's event listeners and DOM bindings.
+         */
+        editor.destroy();
+
+        openChapter(projectId, chapterId);
     });
 }
 

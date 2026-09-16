@@ -346,7 +346,7 @@ export function renderChapterView(container, project, chapter) {
 // SCENE EDITOR VIEW
 // ============================================================
 
-// Render the selected scene and provide an editor for its written content.
+// Render the selected scene and provide a rich-text editor interface.
 export function renderSceneView(container, project, chapter, scene) {
 
     container.innerHTML = `
@@ -365,7 +365,7 @@ export function renderSceneView(container, project, chapter, scene) {
             <!-- Display the selected scene's title. -->
             <h1>${scene.title}</h1>
 
-            <!-- Show which project and chapter this scene belongs to. -->
+            <!-- Show where the scene sits inside the project structure. -->
             <p class="text-muted">
                 ${project.title} / ${chapter.title}
             </p>
@@ -373,37 +373,137 @@ export function renderSceneView(container, project, chapter, scene) {
             <hr>
 
 
-            <!-- Form used to edit and save the scene's written content. -->
-            <form id="scene-editor-form" class="mt-4">
+            <!--
+                Formatting toolbar for the TipTap editor.
+                The buttons will be connected to TipTap commands in app.js.
+            -->
+            <div
+                id="scene-editor-toolbar"
+                class="btn-toolbar gap-2 mb-3"
+                role="toolbar"
+                aria-label="Scene formatting toolbar"
+            >
 
-                <div class="mb-3">
+                <!-- Basic text formatting controls. -->
+                <div class="btn-group" role="group">
 
-                    <label for="scene-content" class="form-label">
-                        Scene Content
-                    </label>
+                    <button
+                        id="editor-bold"
+                        class="btn btn-outline-secondary"
+                        type="button"
+                        title="Bold"
+                    >
+                        <strong>B</strong>
+                    </button>
 
-                    <!--
-                        The scene's existing content is loaded into the textarea.
-                        If the scene is new, scene.content will simply be empty.
-                    -->
-                    <textarea
-                        id="scene-content"
-                        class="form-control"
-                        rows="20"
-                        placeholder="Start writing your scene..."
-                    >${scene.content}</textarea>
+                    <button
+                        id="editor-italic"
+                        class="btn btn-outline-secondary"
+                        type="button"
+                        title="Italic"
+                    >
+                        <em>I</em>
+                    </button>
+
+                    <button
+                        id="editor-underline"
+                        class="btn btn-outline-secondary"
+                        type="button"
+                        title="Underline"
+                    >
+                        <u>U</u>
+                    </button>
 
                 </div>
 
-                <!-- Save the current scene content back to localStorage. -->
-                <button
-                    type="submit"
-                    class="btn btn-primary"
-                >
-                    Save Scene
-                </button>
 
-            </form>
+                <!-- Paragraph alignment controls. -->
+                <div class="btn-group" role="group">
+
+                    <button
+                        id="editor-align-left"
+                        class="btn btn-outline-secondary"
+                        type="button"
+                        title="Align Left"
+                    >
+                        Left
+                    </button>
+
+                    <button
+                        id="editor-align-center"
+                        class="btn btn-outline-secondary"
+                        type="button"
+                        title="Align Centre"
+                    >
+                        Centre
+                    </button>
+
+                    <button
+                        id="editor-align-right"
+                        class="btn btn-outline-secondary"
+                        type="button"
+                        title="Align Right"
+                    >
+                        Right
+                    </button>
+
+                    <button
+                        id="editor-align-justify"
+                        class="btn btn-outline-secondary"
+                        type="button"
+                        title="Justify"
+                    >
+                        Justify
+                    </button>
+
+                </div>
+
+
+                <!-- Undo and redo controls. -->
+                <div class="btn-group" role="group">
+
+                    <button
+                        id="editor-undo"
+                        class="btn btn-outline-secondary"
+                        type="button"
+                        title="Undo"
+                    >
+                        Undo
+                    </button>
+
+                    <button
+                        id="editor-redo"
+                        class="btn btn-outline-secondary"
+                        type="button"
+                        title="Redo"
+                    >
+                        Redo
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <!--
+                TipTap will mount its editable writing area inside this element.
+                The editor itself will be created in app.js.
+            -->
+            <div
+                id="scene-editor"
+                class="form-control"
+                style="min-height: 500px;"
+            ></div>
+
+
+            <!-- Save the rich-text content currently held by TipTap. -->
+            <button
+                id="save-scene"
+                class="btn btn-primary mt-3"
+                type="button"
+            >
+                Save Scene
+            </button>
 
         </div>
     `;

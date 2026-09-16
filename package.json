@@ -10,5 +10,11 @@
     },
     "devDependencies": {
         "vite": "^8.2.2"
+    },
+    "dependencies": {
+        "@tiptap/core": "^3.31.3",
+        "@tiptap/extension-text-align": "^3.31.3",
+        "@tiptap/pm": "^3.31.3",
+        "@tiptap/starter-kit": "^3.31.3"
     }
 }
