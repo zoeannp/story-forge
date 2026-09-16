@@ -1,5 +1,5 @@
 // Coordinates the dashboard, project view, chapter view, scene editor,
-// and user interactions.
+// autosave behaviour, and user interactions.
 
 
 // ============================================================
@@ -337,7 +337,10 @@ function openScene(projectId, chapterId, sceneId) {
     const backButton = document.querySelector("#back-to-chapter");
     const saveButton = document.querySelector("#save-scene");
 
-    // Displays the scene word count below the editor.
+    // Displays autosave status beneath the editor.
+    const saveStatus = document.querySelector("#scene-save-status");
+
+    // Displays the live scene word count beneath the editor.
     const sceneWordCount = document.querySelector("#scene-word-count");
 
 
@@ -367,6 +370,16 @@ function openScene(projectId, chapterId, sceneId) {
     // History controls.
     const undoButton = document.querySelector("#editor-undo");
     const redoButton = document.querySelector("#editor-redo");
+
+
+    // Desktop sidebar navigation controls.
+    const sidebarChapterButtons = document.querySelectorAll(
+        ".editor-sidebar-chapter"
+    );
+
+    const sidebarSceneButtons = document.querySelectorAll(
+        ".editor-sidebar-scene"
+    );
 
 
     // ========================================================
@@ -421,6 +434,168 @@ function openScene(projectId, chapterId, sceneId) {
 
 
     // ========================================================
+    // SAVE HELPERS
+    // ========================================================
+
+    /*
+     * Save the current TipTap document into the selected scene.
+     */
+    function saveCurrentScene() {
+
+        // Get the complete formatted document as HTML.
+        const content = editor.getHTML();
+
+        // Save the scene content and update timestamps.
+        updateSceneContent(
+            projectId,
+            chapterId,
+            sceneId,
+            content
+        );
+    }
+
+
+    /*
+     * Change the autosave message displayed beneath the editor.
+     */
+    function setSaveStatus(message) {
+
+        saveStatus.textContent = message;
+    }
+
+
+    // ========================================================
+    // AUTOSAVE STATE
+    // ========================================================
+
+    /*
+     * Stores the currently scheduled autosave timer.
+     *
+     * Each new document change cancels the previous timer.
+     */
+    let autosaveTimeout = null;
+
+
+    /*
+     * Tracks whether the editor contains changes that have not
+     * yet been persisted into localStorage.
+     */
+    let hasUnsavedChanges = false;
+
+
+    // ========================================================
+    // AUTOSAVE
+    // ========================================================
+
+    /*
+     * Schedule an automatic save after the author stops editing
+     * for one second.
+     *
+     * This is known as debouncing.
+     *
+     * It prevents StoryForge from writing to localStorage after
+     * every individual keystroke.
+     */
+    function scheduleAutosave() {
+
+        // Mark the document as containing unsaved changes.
+        hasUnsavedChanges = true;
+
+        // Update the visible status.
+        setSaveStatus("Unsaved changes");
+
+
+        /*
+         * Cancel the previous countdown if the author continued typing.
+         */
+        if (autosaveTimeout) {
+
+            clearTimeout(autosaveTimeout);
+        }
+
+
+        // Start a fresh one-second autosave countdown.
+        autosaveTimeout = setTimeout(() => {
+
+            // Tell the author that autosave is running.
+            setSaveStatus("Saving...");
+
+            // Persist the latest editor content.
+            saveCurrentScene();
+
+            // The document is now saved.
+            hasUnsavedChanges = false;
+
+            // Clear the completed timer reference.
+            autosaveTimeout = null;
+
+            // Confirm that autosave finished.
+            setSaveStatus("Saved");
+
+        }, 1000);
+    }
+
+
+    /*
+     * Immediately complete any pending autosave.
+     *
+     * This is used before navigation so writing cannot be lost
+     * if the author clicks away before the one-second timer finishes.
+     */
+    function flushAutosave() {
+
+        // Cancel any scheduled autosave timer.
+        if (autosaveTimeout) {
+
+            clearTimeout(autosaveTimeout);
+
+            autosaveTimeout = null;
+        }
+
+
+        // Save immediately if the editor contains unsaved changes.
+        if (hasUnsavedChanges) {
+
+            setSaveStatus("Saving...");
+
+            saveCurrentScene();
+
+            hasUnsavedChanges = false;
+
+            setSaveStatus("Saved");
+        }
+    }
+
+
+    /*
+     * Force an immediate save regardless of whether StoryForge
+     * currently believes the document has unsaved changes.
+     *
+     * Used by the manual Save Scene button.
+     */
+    function saveImmediately() {
+
+        // Cancel any pending autosave.
+        if (autosaveTimeout) {
+
+            clearTimeout(autosaveTimeout);
+
+            autosaveTimeout = null;
+        }
+
+        // Persist the editor's current state immediately.
+        setSaveStatus("Saving...");
+
+        saveCurrentScene();
+
+        // Everything currently visible is now stored.
+        hasUnsavedChanges = false;
+
+        setSaveStatus("Saved");
+    }
+
+
+    // ========================================================
     // WORD COUNT HELPERS
     // ========================================================
 
@@ -443,9 +618,6 @@ function openScene(projectId, chapterId, sceneId) {
 
     /*
      * Recalculate the scene word count from the editor's current HTML.
-     *
-     * This runs while the user types, so the displayed count does
-     * not depend on the scene being manually saved first.
      */
     function updateLiveWordCount() {
 
@@ -456,7 +628,8 @@ function openScene(projectId, chapterId, sceneId) {
         const wordCount = countSceneWords(content);
 
         // Update the muted word-count display beneath the editor.
-        sceneWordCount.textContent = formatLiveWordCount(wordCount);
+        sceneWordCount.textContent =
+            formatLiveWordCount(wordCount);
     }
 
 
@@ -470,7 +643,10 @@ function openScene(projectId, chapterId, sceneId) {
      */
     function setButtonActive(button, isActive) {
 
-        button.classList.toggle("active", isActive);
+        button.classList.toggle(
+            "active",
+            isActive
+        );
 
         button.setAttribute(
             "aria-pressed",
@@ -497,15 +673,18 @@ function openScene(projectId, chapterId, sceneId) {
      */
     function getParagraphIndentAmount() {
 
-        const attributes = getParagraphAttributes();
+        const attributes =
+            getParagraphAttributes();
 
-        const marginLeft = attributes.marginLeft;
+        const marginLeft =
+            attributes.marginLeft;
 
         if (!marginLeft) {
             return 0;
         }
 
-        const amount = parseFloat(marginLeft);
+        const amount =
+            parseFloat(marginLeft);
 
         if (Number.isNaN(amount)) {
             return 0;
@@ -548,22 +727,30 @@ function openScene(projectId, chapterId, sceneId) {
 
         setButtonActive(
             alignLeftButton,
-            editor.isActive({ textAlign: "left" })
+            editor.isActive({
+                textAlign: "left"
+            })
         );
 
         setButtonActive(
             alignCenterButton,
-            editor.isActive({ textAlign: "center" })
+            editor.isActive({
+                textAlign: "center"
+            })
         );
 
         setButtonActive(
             alignRightButton,
-            editor.isActive({ textAlign: "right" })
+            editor.isActive({
+                textAlign: "right"
+            })
         );
 
         setButtonActive(
             alignJustifyButton,
-            editor.isActive({ textAlign: "justify" })
+            editor.isActive({
+                textAlign: "justify"
+            })
         );
 
 
@@ -571,7 +758,9 @@ function openScene(projectId, chapterId, sceneId) {
         // MANUSCRIPT PARAGRAPH FORMATTING
         // ----------------------------------------------------
 
-        const paragraphAttributes = getParagraphAttributes();
+        const paragraphAttributes =
+            getParagraphAttributes();
+
 
         // Show whether the current paragraph has a first-line indent.
         setButtonActive(
@@ -602,6 +791,7 @@ function openScene(projectId, chapterId, sceneId) {
             .undo()
             .run();
 
+
         // Disable Redo if there is nothing available to redo.
         redoButton.disabled = !editor
             .can()
@@ -612,23 +802,42 @@ function openScene(projectId, chapterId, sceneId) {
     }
 
 
+    // ========================================================
+    // TIPTAP EVENTS
+    // ========================================================
+
     // Refresh toolbar state when the cursor or selection changes.
-    editor.on("selectionUpdate", updateToolbarState);
+    editor.on(
+        "selectionUpdate",
+        updateToolbarState
+    );
+
 
     // Refresh toolbar state whenever an editor transaction occurs.
-    editor.on("transaction", updateToolbarState);
+    editor.on(
+        "transaction",
+        updateToolbarState
+    );
+
 
     /*
-     * Recalculate the word count whenever the document content changes.
+     * Whenever the actual document changes:
      *
-     * This makes the count increase and decrease live as the author types.
+     * - update the word count
+     * - start/restart the autosave timer
      */
-    editor.on("update", updateLiveWordCount);
+    editor.on("update", () => {
+
+        updateLiveWordCount();
+
+        scheduleAutosave();
+    });
 
 
     // Set the correct states when the editor first opens.
     updateToolbarState();
     updateLiveWordCount();
+    setSaveStatus("Saved");
 
 
     // ========================================================
@@ -726,13 +935,16 @@ function openScene(projectId, chapterId, sceneId) {
      */
     firstLineIndentButton.addEventListener("click", () => {
 
-        const attributes = getParagraphAttributes();
+        const attributes =
+            getParagraphAttributes();
+
 
         // Remove the indent if already active, otherwise apply it.
         const newIndent =
             attributes.textIndent === "0.5in"
                 ? null
                 : "0.5in";
+
 
         editor
             .chain()
@@ -754,9 +966,12 @@ function openScene(projectId, chapterId, sceneId) {
     // Increase the entire paragraph indent by half an inch.
     indentButton.addEventListener("click", () => {
 
-        const currentIndent = getParagraphIndentAmount();
+        const currentIndent =
+            getParagraphIndentAmount();
 
-        const newIndent = currentIndent + 0.5;
+        const newIndent =
+            currentIndent + 0.5;
+
 
         editor
             .chain()
@@ -774,7 +989,9 @@ function openScene(projectId, chapterId, sceneId) {
     // Decrease the entire paragraph indent by half an inch.
     outdentButton.addEventListener("click", () => {
 
-        const currentIndent = getParagraphIndentAmount();
+        const currentIndent =
+            getParagraphIndentAmount();
+
 
         // Prevent indentation from becoming negative.
         const newIndent = Math.max(
@@ -812,7 +1029,8 @@ function openScene(projectId, chapterId, sceneId) {
     // Apply the selected line spacing to the current paragraph.
     lineSpacingSelect.addEventListener("change", () => {
 
-        const selectedSpacing = lineSpacingSelect.value;
+        const selectedSpacing =
+            lineSpacingSelect.value;
 
 
         /*
@@ -865,34 +1083,21 @@ function openScene(projectId, chapterId, sceneId) {
 
 
     // ========================================================
-    // SAVE SCENE
+    // MANUAL SAVE
     // ========================================================
 
-    // Save the scene's formatted HTML into localStorage.
+    /*
+     * Keep the manual Save Scene button as an immediate override.
+     *
+     * Autosave means the author normally does not need to use it.
+     */
     saveButton.addEventListener("click", () => {
 
-        /*
-         * getHTML() preserves:
-         *
-         * - rich-text formatting
-         * - text alignment
-         * - first-line indentation
-         * - paragraph indentation
-         * - line spacing
-         */
-        const content = editor.getHTML();
+        // Persist immediately rather than waiting for autosave.
+        saveImmediately();
 
 
-        // Save the formatted scene content.
-        updateSceneContent(
-            projectId,
-            chapterId,
-            sceneId,
-            content
-        );
-
-
-        // Give the user confirmation that the save completed.
+        // Give an additional visual confirmation on the button itself.
         saveButton.textContent = "Saved ✓";
 
 
@@ -900,7 +1105,9 @@ function openScene(projectId, chapterId, sceneId) {
         setTimeout(() => {
 
             if (saveButton.isConnected) {
-                saveButton.textContent = "Save Scene";
+
+                saveButton.textContent =
+                    "Save Scene";
             }
 
         }, 1200);
@@ -908,19 +1115,120 @@ function openScene(projectId, chapterId, sceneId) {
 
 
     // ========================================================
-    // NAVIGATION
+    // DESKTOP SIDEBAR CHAPTER NAVIGATION
+    // ========================================================
+
+    /*
+     * Allow the author to jump directly to any chapter from
+     * the desktop editor sidebar.
+     */
+    sidebarChapterButtons.forEach((chapterButton) => {
+
+        chapterButton.addEventListener("click", () => {
+
+            // Read the chapter selected in the sidebar.
+            const targetChapterId =
+                chapterButton.dataset.chapterId;
+
+
+            /*
+             * Immediately complete any pending autosave before leaving.
+             */
+            flushAutosave();
+
+
+            // Clean up the current TipTap editor instance.
+            editor.destroy();
+
+
+            // Open the selected chapter.
+            openChapter(
+                projectId,
+                targetChapterId
+            );
+        });
+    });
+
+
+    // ========================================================
+    // DESKTOP SIDEBAR SCENE NAVIGATION
+    // ========================================================
+
+    /*
+     * Allow the author to jump directly between scenes,
+     * including scenes belonging to another chapter.
+     */
+    sidebarSceneButtons.forEach((sceneButton) => {
+
+        sceneButton.addEventListener("click", () => {
+
+            // Read the destination chapter and scene IDs.
+            const targetChapterId =
+                sceneButton.dataset.chapterId;
+
+            const targetSceneId =
+                sceneButton.dataset.sceneId;
+
+
+            /*
+             * Do nothing if the current scene was clicked again.
+             *
+             * Rebuilding the current editor would accomplish
+             * nothing except upsetting JavaScript for sport.
+             */
+            if (
+                targetChapterId === chapterId &&
+                targetSceneId === sceneId
+            ) {
+                return;
+            }
+
+
+            // Complete any pending autosave before switching scenes.
+            flushAutosave();
+
+
+            // Destroy the current TipTap editor instance.
+            editor.destroy();
+
+
+            // Open the selected scene directly.
+            openScene(
+                projectId,
+                targetChapterId,
+                targetSceneId
+            );
+        });
+    });
+
+
+    // ========================================================
+    // BACK NAVIGATION
     // ========================================================
 
     // Return to the chapter that contains this scene.
     backButton.addEventListener("click", () => {
 
         /*
+         * Complete any pending autosave before leaving the editor.
+         *
+         * Even if the author types something and immediately clicks
+         * Back before the one-second timer finishes, the writing survives.
+         */
+        flushAutosave();
+
+
+        /*
          * Destroy the TipTap instance before replacing the editor view.
-         * This removes TipTap's event listeners and DOM bindings.
          */
         editor.destroy();
 
-        openChapter(projectId, chapterId);
+
+        // Return to the chapter containing the scene.
+        openChapter(
+            projectId,
+            chapterId
+        );
     });
 }
 

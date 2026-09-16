@@ -449,9 +449,17 @@ export function renderSceneView(container, project, chapter, scene) {
     const sceneWordCount = countSceneWords(scene.content);
 
     container.innerHTML = `
-        <div class="container mt-5">
+        <div class="container-fluid mt-4 px-3 px-lg-4">
 
-            <!-- Return to the chapter that contains this scene. -->
+
+            <!-- ====================================================== -->
+            <!-- MOBILE / GENERAL BACK NAVIGATION -->
+            <!-- ====================================================== -->
+
+            <!--
+                Keep the existing Back button available on all screen sizes.
+                Mobile users rely on this because the sidebar is hidden.
+            -->
             <button
                 id="back-to-chapter"
                 class="btn btn-outline-secondary mb-4"
@@ -461,315 +469,547 @@ export function renderSceneView(container, project, chapter, scene) {
             </button>
 
 
-            <!-- Display the selected scene's title. -->
-            <h1>${scene.title}</h1>
-
-            <!-- Show the scene's location inside the project structure. -->
-            <p class="text-muted">
-                ${project.title} / ${chapter.title}
-            </p>
-
-            <hr>
-
-
             <!-- ====================================================== -->
-            <!-- RICH-TEXT TOOLBAR -->
+            <!-- EDITOR LAYOUT -->
             <!-- ====================================================== -->
 
-            <!--
-                Formatting toolbar for the TipTap editor.
-                app.js connects these controls to TipTap commands.
-            -->
-            <div
-                id="scene-editor-toolbar"
-                class="d-flex flex-wrap gap-2 mb-3"
-                role="toolbar"
-                aria-label="Scene formatting toolbar"
-            >
+            <div class="row g-4">
 
 
                 <!-- ================================================== -->
-                <!-- BASIC TEXT FORMATTING -->
+                <!-- DESKTOP SIDEBAR -->
                 <!-- ================================================== -->
 
-                <div
-                    class="btn-group"
-                    role="group"
-                    aria-label="Text formatting"
+                <!--
+                    The sidebar is hidden on small and medium screens.
+
+                    Bootstrap's d-none d-lg-block classes mean:
+                    - mobile/tablet: hidden
+                    - large desktop screens and above: visible
+                -->
+                <aside
+                    class="col-lg-3 d-none d-lg-block"
+                    id="editor-sidebar"
                 >
 
-                    <!-- Toggle bold formatting. -->
-                    <button
-                        id="editor-bold"
-                        class="btn btn-outline-secondary"
-                        type="button"
-                        title="Bold"
-                        aria-label="Bold"
-                    >
-                        <strong>B</strong>
-                    </button>
+                    <div class="card">
+
+                        <div class="card-body">
+
+                            <!-- Display the current project at the top. -->
+                            <h2 class="h5 mb-1">
+                                ${project.title}
+                            </h2>
+
+                            <p class="text-muted small mb-4">
+                                ${formatWordCount(countProjectWords(project))}
+                            </p>
 
 
-                    <!-- Toggle italic formatting. -->
-                    <button
-                        id="editor-italic"
-                        class="btn btn-outline-secondary"
-                        type="button"
-                        title="Italic"
-                        aria-label="Italic"
-                    >
-                        <em>I</em>
-                    </button>
+                            <!--
+                                Render every chapter in the project so the
+                                author can navigate without leaving the editor.
+                            -->
+                            <div id="editor-sidebar-navigation">
+
+                                ${project.chapters.map(sidebarChapter => {
+
+                                    const chapterWordCount =
+                                        countChapterWords(sidebarChapter);
+
+                                    const isCurrentChapter =
+                                        sidebarChapter.id === chapter.id;
+
+                                    return `
+                                        <div class="mb-4">
+
+                                            <!--
+                                                Clicking a chapter returns the
+                                                author to that chapter view.
+
+                                                app.js wires this button.
+                                            -->
+                                            <button
+                                                class="
+                                                    btn
+                                                    btn-sm
+                                                    w-100
+                                                    text-start
+                                                    editor-sidebar-chapter
+                                                    ${
+                                                        isCurrentChapter
+                                                            ? "fw-bold"
+                                                            : ""
+                                                    }
+                                                "
+                                                type="button"
+                                                data-chapter-id="${sidebarChapter.id}"
+                                            >
+                                                ${sidebarChapter.title}
+                                            </button>
 
 
-                    <!-- Toggle underline formatting. -->
-                    <button
-                        id="editor-underline"
-                        class="btn btn-outline-secondary"
-                        type="button"
-                        title="Underline"
-                        aria-label="Underline"
-                    >
-                        <u>U</u>
-                    </button>
-
-                </div>
+                                            <!-- Chapter word count. -->
+                                            <div class="text-muted small px-2 mb-2">
+                                                ${formatWordCount(chapterWordCount)}
+                                            </div>
 
 
-                <!-- ================================================== -->
-                <!-- TEXT ALIGNMENT -->
-                <!-- ================================================== -->
+                                            <!-- Render the scenes belonging to this chapter. -->
+                                            ${
+                                                sidebarChapter.scenes.length === 0
 
-                <div
-                    class="btn-group"
-                    role="group"
-                    aria-label="Text alignment"
-                >
+                                                    ? `
+                                                        <p
+                                                            class="
+                                                                text-muted
+                                                                small
+                                                                fst-italic
+                                                                px-2
+                                                                mb-0
+                                                            "
+                                                        >
+                                                            No scenes
+                                                        </p>
+                                                    `
 
-                    <!-- Align the current paragraph to the left. -->
-                    <button
-                        id="editor-align-left"
-                        class="btn btn-outline-secondary"
-                        type="button"
-                        title="Align Left"
-                    >
-                        Left
-                    </button>
+                                                    : `
+                                                        <div class="list-group list-group-flush">
 
+                                                            ${sidebarChapter.scenes.map(
+                                                                sidebarScene => {
 
-                    <!-- Centre the current paragraph. -->
-                    <button
-                        id="editor-align-center"
-                        class="btn btn-outline-secondary"
-                        type="button"
-                        title="Align Centre"
-                    >
-                        Centre
-                    </button>
+                                                                    const isCurrentScene =
+                                                                        sidebarScene.id === scene.id;
 
+                                                                    const sidebarSceneWordCount =
+                                                                        countSceneWords(
+                                                                            sidebarScene.content
+                                                                        );
 
-                    <!-- Align the current paragraph to the right. -->
-                    <button
-                        id="editor-align-right"
-                        class="btn btn-outline-secondary"
-                        type="button"
-                        title="Align Right"
-                    >
-                        Right
-                    </button>
+                                                                    return `
+                                                                        <!--
+                                                                            Each scene stores both its own ID
+                                                                            and its parent chapter ID.
 
+                                                                            This allows app.js to jump directly
+                                                                            between scenes across chapters.
+                                                                        -->
+                                                                        <button
+                                                                            class="
+                                                                                list-group-item
+                                                                                list-group-item-action
+                                                                                editor-sidebar-scene
+                                                                                ${
+                                                                                    isCurrentScene
+                                                                                        ? "active"
+                                                                                        : ""
+                                                                                }
+                                                                            "
+                                                                            type="button"
+                                                                            data-chapter-id="${sidebarChapter.id}"
+                                                                            data-scene-id="${sidebarScene.id}"
+                                                                            ${
+                                                                                isCurrentScene
+                                                                                    ? 'aria-current="true"'
+                                                                                    : ""
+                                                                            }
+                                                                        >
 
-                    <!-- Justify the current paragraph. -->
-                    <button
-                        id="editor-align-justify"
-                        class="btn btn-outline-secondary"
-                        type="button"
-                        title="Justify"
-                    >
-                        Justify
-                    </button>
+                                                                            <!-- Scene title. -->
+                                                                            <div>
+                                                                                ${sidebarScene.title}
+                                                                            </div>
 
-                </div>
+                                                                            <!-- Scene word count. -->
+                                                                            <small
+                                                                                class="${
+                                                                                    isCurrentScene
+                                                                                        ? ""
+                                                                                        : "text-muted"
+                                                                                }"
+                                                                            >
+                                                                                ${formatWordCount(
+                                                                                    sidebarSceneWordCount
+                                                                                )}
+                                                                            </small>
 
+                                                                        </button>
+                                                                    `;
+                                                                }
+                                                            ).join("")}
 
-                <!-- ================================================== -->
-                <!-- MANUSCRIPT INDENTATION -->
-                <!-- ================================================== -->
+                                                        </div>
+                                                    `
+                                            }
 
-                <div
-                    class="btn-group"
-                    role="group"
-                    aria-label="Paragraph indentation"
-                >
+                                        </div>
+                                    `;
+                                }).join("")}
 
-                    <!-- Toggle a manuscript-style first-line indent. -->
-                    <button
-                        id="editor-first-line-indent"
-                        class="btn btn-outline-secondary"
-                        type="button"
-                        title="First-line indent"
-                    >
-                        First Line
-                    </button>
+                            </div>
 
+                        </div>
 
-                    <!-- Move the entire paragraph further from the left margin. -->
-                    <button
-                        id="editor-indent"
-                        class="btn btn-outline-secondary"
-                        type="button"
-                        title="Increase paragraph indent"
-                    >
-                        Indent
-                    </button>
+                    </div>
 
-
-                    <!-- Move the entire paragraph back toward the left margin. -->
-                    <button
-                        id="editor-outdent"
-                        class="btn btn-outline-secondary"
-                        type="button"
-                        title="Decrease paragraph indent"
-                    >
-                        Outdent
-                    </button>
-
-                </div>
-
-
-                <!-- ================================================== -->
-                <!-- LINE SPACING -->
-                <!-- ================================================== -->
-
-                <!-- Select the line spacing used by the current paragraph. -->
-                <div
-                    class="input-group"
-                    style="width: auto;"
-                >
-
-                    <label
-                        class="input-group-text"
-                        for="editor-line-spacing"
-                    >
-                        Line Spacing
-                    </label>
-
-                    <select
-                        id="editor-line-spacing"
-                        class="form-select"
-                        aria-label="Line spacing"
-                    >
-
-                        <!-- Browser/default line spacing. -->
-                        <option value="">
-                            Normal
-                        </option>
-
-                        <option value="1">
-                            1.0
-                        </option>
-
-                        <option value="1.15">
-                            1.15
-                        </option>
-
-                        <option value="1.5">
-                            1.5
-                        </option>
-
-                        <option value="2">
-                            2.0
-                        </option>
-
-                    </select>
-
-                </div>
+                </aside>
 
 
                 <!-- ================================================== -->
-                <!-- HISTORY CONTROLS -->
+                <!-- MAIN EDITOR COLUMN -->
                 <!-- ================================================== -->
 
-                <div
-                    class="btn-group"
-                    role="group"
-                    aria-label="Editor history"
-                >
+                <!--
+                    On mobile the editor takes the full width.
+                    On desktop it occupies the remaining space beside
+                    the navigation sidebar.
+                -->
+                <main class="col-12 col-lg-9">
 
-                    <!-- Undo the previous editor change. -->
-                    <button
-                        id="editor-undo"
-                        class="btn btn-outline-secondary"
-                        type="button"
-                        title="Undo"
+
+                    <!-- Display the selected scene's title. -->
+                    <h1>${scene.title}</h1>
+
+                    <!-- Show the scene's location inside the project structure. -->
+                    <p class="text-muted">
+                        ${project.title} / ${chapter.title}
+                    </p>
+
+                    <hr>
+
+
+                    <!-- ================================================== -->
+                    <!-- RICH-TEXT TOOLBAR -->
+                    <!-- ================================================== -->
+
+                    <!--
+                        Formatting toolbar for the TipTap editor.
+                        app.js connects these controls to TipTap commands.
+                    -->
+                    <div
+                        id="scene-editor-toolbar"
+                        class="d-flex flex-wrap gap-2 mb-3"
+                        role="toolbar"
+                        aria-label="Scene formatting toolbar"
                     >
-                        Undo
+
+
+                        <!-- ============================================== -->
+                        <!-- BASIC TEXT FORMATTING -->
+                        <!-- ============================================== -->
+
+                        <div
+                            class="btn-group"
+                            role="group"
+                            aria-label="Text formatting"
+                        >
+
+                            <!-- Toggle bold formatting. -->
+                            <button
+                                id="editor-bold"
+                                class="btn btn-outline-secondary"
+                                type="button"
+                                title="Bold"
+                                aria-label="Bold"
+                            >
+                                <strong>B</strong>
+                            </button>
+
+
+                            <!-- Toggle italic formatting. -->
+                            <button
+                                id="editor-italic"
+                                class="btn btn-outline-secondary"
+                                type="button"
+                                title="Italic"
+                                aria-label="Italic"
+                            >
+                                <em>I</em>
+                            </button>
+
+
+                            <!-- Toggle underline formatting. -->
+                            <button
+                                id="editor-underline"
+                                class="btn btn-outline-secondary"
+                                type="button"
+                                title="Underline"
+                                aria-label="Underline"
+                            >
+                                <u>U</u>
+                            </button>
+
+                        </div>
+
+
+                        <!-- ============================================== -->
+                        <!-- TEXT ALIGNMENT -->
+                        <!-- ============================================== -->
+
+                        <div
+                            class="btn-group"
+                            role="group"
+                            aria-label="Text alignment"
+                        >
+
+                            <button
+                                id="editor-align-left"
+                                class="btn btn-outline-secondary"
+                                type="button"
+                                title="Align Left"
+                            >
+                                Left
+                            </button>
+
+
+                            <button
+                                id="editor-align-center"
+                                class="btn btn-outline-secondary"
+                                type="button"
+                                title="Align Centre"
+                            >
+                                Centre
+                            </button>
+
+
+                            <button
+                                id="editor-align-right"
+                                class="btn btn-outline-secondary"
+                                type="button"
+                                title="Align Right"
+                            >
+                                Right
+                            </button>
+
+
+                            <button
+                                id="editor-align-justify"
+                                class="btn btn-outline-secondary"
+                                type="button"
+                                title="Justify"
+                            >
+                                Justify
+                            </button>
+
+                        </div>
+
+
+                        <!-- ============================================== -->
+                        <!-- MANUSCRIPT INDENTATION -->
+                        <!-- ============================================== -->
+
+                        <div
+                            class="btn-group"
+                            role="group"
+                            aria-label="Paragraph indentation"
+                        >
+
+                            <!-- Toggle a manuscript-style first-line indent. -->
+                            <button
+                                id="editor-first-line-indent"
+                                class="btn btn-outline-secondary"
+                                type="button"
+                                title="First-line indent"
+                            >
+                                First Line
+                            </button>
+
+
+                            <!-- Increase whole-paragraph indentation. -->
+                            <button
+                                id="editor-indent"
+                                class="btn btn-outline-secondary"
+                                type="button"
+                                title="Increase paragraph indent"
+                            >
+                                Indent
+                            </button>
+
+
+                            <!-- Decrease whole-paragraph indentation. -->
+                            <button
+                                id="editor-outdent"
+                                class="btn btn-outline-secondary"
+                                type="button"
+                                title="Decrease paragraph indent"
+                            >
+                                Outdent
+                            </button>
+
+                        </div>
+
+
+                        <!-- ============================================== -->
+                        <!-- LINE SPACING -->
+                        <!-- ============================================== -->
+
+                        <div
+                            class="input-group"
+                            style="width: auto;"
+                        >
+
+                            <label
+                                class="input-group-text"
+                                for="editor-line-spacing"
+                            >
+                                Line Spacing
+                            </label>
+
+                            <select
+                                id="editor-line-spacing"
+                                class="form-select"
+                                aria-label="Line spacing"
+                            >
+
+                                <option value="">
+                                    Normal
+                                </option>
+
+                                <option value="1">
+                                    1.0
+                                </option>
+
+                                <option value="1.15">
+                                    1.15
+                                </option>
+
+                                <option value="1.5">
+                                    1.5
+                                </option>
+
+                                <option value="2">
+                                    2.0
+                                </option>
+
+                            </select>
+
+                        </div>
+
+
+                        <!-- ============================================== -->
+                        <!-- HISTORY CONTROLS -->
+                        <!-- ============================================== -->
+
+                        <div
+                            class="btn-group"
+                            role="group"
+                            aria-label="Editor history"
+                        >
+
+                            <!-- Undo the previous editor change. -->
+                            <button
+                                id="editor-undo"
+                                class="btn btn-outline-secondary"
+                                type="button"
+                                title="Undo"
+                            >
+                                Undo
+                            </button>
+
+
+                            <!-- Redo the previous undone change. -->
+                            <button
+                                id="editor-redo"
+                                class="btn btn-outline-secondary"
+                                type="button"
+                                title="Redo"
+                            >
+                                Redo
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- ================================================== -->
+                    <!-- TIPTAP WRITING AREA -->
+                    <!-- ================================================== -->
+
+                    <!--
+                        TipTap mounts its editable document inside this element.
+                        Proper StoryForge CSS will replace the temporary
+                        Bootstrap styling later.
+                    -->
+                    <div
+                        id="scene-editor"
+                        class="form-control"
+                        style="min-height: 500px;"
+                    ></div>
+
+
+                    <!-- ================================================== -->
+                    <!-- EDITOR FOOTER -->
+                    <!-- ================================================== -->
+
+                    <!--
+                        Display the autosave status on the left and the live
+                        scene word count on the right.
+
+                        The final colours and styling will be handled later
+                        in the StoryForge CSS.
+                    -->
+                    <div
+                        class="
+                            d-flex
+                            justify-content-between
+                            align-items-center
+                            mt-2
+                        "
+                    >
+
+                        <!--
+                            app.js updates this message while autosave runs.
+
+                            Possible states include:
+                            Saved
+                            Unsaved changes
+                            Saving...
+                        -->
+                        <small
+                            id="scene-save-status"
+                            class="text-muted"
+                        >
+                            Saved
+                        </small>
+
+
+                        <!--
+                            app.js updates this count live while the
+                            author writes or deletes text.
+                        -->
+                        <small
+                            id="scene-word-count"
+                            class="text-muted"
+                        >
+                            ${formatWordCount(sceneWordCount)}
+                        </small>
+
+                    </div>
+
+
+                    <!-- ================================================== -->
+                    <!-- SAVE CONTROLS -->
+                    <!-- ================================================== -->
+
+                    <!--
+                        Keep a manual save option even though StoryForge
+                        will now autosave the scene.
+
+                        This acts as an immediate manual override.
+                    -->
+                    <button
+                        id="save-scene"
+                        class="btn btn-primary mt-3"
+                        type="button"
+                    >
+                        Save Scene
                     </button>
 
-
-                    <!-- Redo the previous undone change. -->
-                    <button
-                        id="editor-redo"
-                        class="btn btn-outline-secondary"
-                        type="button"
-                        title="Redo"
-                    >
-                        Redo
-                    </button>
-
-                </div>
+                </main>
 
             </div>
-
-
-            <!-- ====================================================== -->
-            <!-- TIPTAP WRITING AREA -->
-            <!-- ====================================================== -->
-
-            <!--
-                TipTap mounts its editable document inside this element.
-                Proper StoryForge CSS will replace the temporary Bootstrap
-                styling later in development.
-            -->
-            <div
-                id="scene-editor"
-                class="form-control"
-                style="min-height: 500px;"
-            ></div>
-
-
-            <!-- ====================================================== -->
-            <!-- EDITOR FOOTER -->
-            <!-- ====================================================== -->
-
-            <!--
-                The scene word count is displayed beneath the editor.
-                app.js will update this value live while the user writes.
-            -->
-            <div
-                class="d-flex justify-content-end mt-2"
-            >
-                <small
-                    id="scene-word-count"
-                    class="text-muted"
-                >
-                    ${formatWordCount(sceneWordCount)}
-                </small>
-            </div>
-
-
-            <!-- ====================================================== -->
-            <!-- SAVE CONTROLS -->
-            <!-- ====================================================== -->
-
-            <!-- Save the current rich-text scene content. -->
-            <button
-                id="save-scene"
-                class="btn btn-primary mt-3"
-                type="button"
-            >
-                Save Scene
-            </button>
 
         </div>
     `;
