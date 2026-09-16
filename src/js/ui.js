@@ -1,5 +1,33 @@
 // Builds the HTML views used by the StoryForge application.
 
+import {
+    countSceneWords,
+    countChapterWords,
+    countProjectWords
+} from "./wordCount.js";
+
+
+// ============================================================
+// WORD COUNT DISPLAY HELPER
+// ============================================================
+
+/*
+ * Format a word count for display in the interface.
+ *
+ * Examples:
+ * 1      -> "1 word"
+ * 2500   -> "2,500 words"
+ */
+function formatWordCount(count) {
+
+    // Use the singular form when the count is exactly one.
+    const label = count === 1
+        ? "word"
+        : "words";
+
+    return `${count.toLocaleString()} ${label}`;
+}
+
 
 // ============================================================
 // PROJECT CREATION VIEW
@@ -19,7 +47,10 @@ export function renderCreateProjectForm(container) {
 
                 <div class="mb-3">
 
-                    <label for="project-title" class="form-label">
+                    <label
+                        for="project-title"
+                        class="form-label"
+                    >
                         Project Title
                     </label>
 
@@ -69,6 +100,7 @@ export function renderProjectList(container, projects) {
         return;
     }
 
+
     /*
      * Each project card stores its project ID in a data attribute.
      * app.js uses this ID to determine which project was clicked.
@@ -80,31 +112,43 @@ export function renderProjectList(container, projects) {
 
             <div class="row g-3 mt-2">
 
-                ${projects.map(project => `
-                    <div class="col-md-6 col-lg-4">
+                ${projects.map(project => {
 
-                        <button
-                            class="card h-100 w-100 text-start project-card"
-                            data-project-id="${project.id}"
-                            type="button"
-                        >
+                    // Calculate the total words across the entire project.
+                    const wordCount = countProjectWords(project);
 
-                            <div class="card-body">
+                    return `
+                        <div class="col-md-6 col-lg-4">
 
-                                <h3 class="card-title h5">
-                                    ${project.title}
-                                </h3>
+                            <button
+                                class="card h-100 w-100 text-start project-card"
+                                data-project-id="${project.id}"
+                                type="button"
+                            >
 
-                                <p class="card-text text-muted">
-                                    ${project.chapters.length} chapters
-                                </p>
+                                <div class="card-body">
 
-                            </div>
+                                    <h3 class="card-title h5">
+                                        ${project.title}
+                                    </h3>
 
-                        </button>
+                                    <!-- Display project structure information. -->
+                                    <p class="card-text text-muted mb-1">
+                                        ${project.chapters.length} chapters
+                                    </p>
 
-                    </div>
-                `).join("")}
+                                    <!-- Display the project's total word count. -->
+                                    <p class="card-text text-muted mb-0">
+                                        ${formatWordCount(wordCount)}
+                                    </p>
+
+                                </div>
+
+                            </button>
+
+                        </div>
+                    `;
+                }).join("")}
 
             </div>
 
@@ -119,6 +163,9 @@ export function renderProjectList(container, projects) {
 
 // Render the selected project, its chapters, and the chapter creation form.
 export function renderProjectView(container, project) {
+
+    // Calculate the total words across all chapters in this project.
+    const projectWordCount = countProjectWords(project);
 
     container.innerHTML = `
         <div class="container mt-5">
@@ -138,17 +185,25 @@ export function renderProjectView(container, project) {
 
             <p class="text-muted">
                 ${project.chapters.length} chapters
+                •
+                ${formatWordCount(projectWordCount)}
             </p>
 
             <hr>
 
 
             <!-- Form used to create a new chapter inside this project. -->
-            <form id="create-chapter-form" class="mt-4">
+            <form
+                id="create-chapter-form"
+                class="mt-4"
+            >
 
                 <div class="mb-3">
 
-                    <label for="chapter-title" class="form-label">
+                    <label
+                        for="chapter-title"
+                        class="form-label"
+                    >
                         Chapter Title
                     </label>
 
@@ -191,35 +246,48 @@ export function renderProjectView(container, project) {
                             <!-- Render one clickable card for each chapter. -->
                             <div class="row g-3 mt-2">
 
-                                ${project.chapters.map(chapter => `
-                                    <div class="col-12">
+                                ${project.chapters.map(chapter => {
 
-                                        <!--
-                                            Store the chapter ID on the button so app.js
-                                            knows which chapter the user selected.
-                                        -->
-                                        <button
-                                            class="card h-100 w-100 text-start chapter-card"
-                                            data-chapter-id="${chapter.id}"
-                                            type="button"
-                                        >
+                                    // Calculate the total words inside this chapter.
+                                    const chapterWordCount =
+                                        countChapterWords(chapter);
 
-                                            <div class="card-body">
+                                    return `
+                                        <div class="col-12">
 
-                                                <h3 class="card-title h5">
-                                                    ${chapter.title}
-                                                </h3>
+                                            <!--
+                                                Store the chapter ID on the button so app.js
+                                                knows which chapter the user selected.
+                                            -->
+                                            <button
+                                                class="card h-100 w-100 text-start chapter-card"
+                                                data-chapter-id="${chapter.id}"
+                                                type="button"
+                                            >
 
-                                                <p class="card-text text-muted">
-                                                    ${chapter.scenes.length} scenes
-                                                </p>
+                                                <div class="card-body">
 
-                                            </div>
+                                                    <h3 class="card-title h5">
+                                                        ${chapter.title}
+                                                    </h3>
 
-                                        </button>
+                                                    <!-- Display scene count. -->
+                                                    <p class="card-text text-muted mb-1">
+                                                        ${chapter.scenes.length} scenes
+                                                    </p>
 
-                                    </div>
-                                `).join("")}
+                                                    <!-- Display chapter word count. -->
+                                                    <p class="card-text text-muted mb-0">
+                                                        ${formatWordCount(chapterWordCount)}
+                                                    </p>
+
+                                                </div>
+
+                                            </button>
+
+                                        </div>
+                                    `;
+                                }).join("")}
 
                             </div>
                         `
@@ -239,6 +307,9 @@ export function renderProjectView(container, project) {
 // Render the selected chapter, its scene creation form, and its scenes.
 export function renderChapterView(container, project, chapter) {
 
+    // Calculate the total words across every scene in this chapter.
+    const chapterWordCount = countChapterWords(chapter);
+
     container.innerHTML = `
         <div class="container mt-5">
 
@@ -257,17 +328,25 @@ export function renderChapterView(container, project, chapter) {
 
             <p class="text-muted">
                 ${chapter.scenes.length} scenes
+                •
+                ${formatWordCount(chapterWordCount)}
             </p>
 
             <hr>
 
 
             <!-- Form used to create a new scene inside this chapter. -->
-            <form id="create-scene-form" class="mt-4">
+            <form
+                id="create-scene-form"
+                class="mt-4"
+            >
 
                 <div class="mb-3">
 
-                    <label for="scene-title" class="form-label">
+                    <label
+                        for="scene-title"
+                        class="form-label"
+                    >
                         Scene Title
                     </label>
 
@@ -310,35 +389,43 @@ export function renderChapterView(container, project, chapter) {
                             <!-- Render one clickable card for each scene. -->
                             <div class="row g-3 mt-2">
 
-                                ${chapter.scenes.map(scene => `
-                                    <div class="col-12">
+                                ${chapter.scenes.map(scene => {
 
-                                        <!--
-                                            Store the scene ID on the button so app.js
-                                            knows which scene the user selected.
-                                        -->
-                                        <button
-                                            class="card h-100 w-100 text-start scene-card"
-                                            data-scene-id="${scene.id}"
-                                            type="button"
-                                        >
+                                    // Calculate the word count for this scene.
+                                    const sceneWordCount =
+                                        countSceneWords(scene.content);
 
-                                            <div class="card-body">
+                                    return `
+                                        <div class="col-12">
 
-                                                <h3 class="card-title h5">
-                                                    ${scene.title}
-                                                </h3>
+                                            <!--
+                                                Store the scene ID on the button so app.js
+                                                knows which scene the user selected.
+                                            -->
+                                            <button
+                                                class="card h-100 w-100 text-start scene-card"
+                                                data-scene-id="${scene.id}"
+                                                type="button"
+                                            >
 
-                                                <p class="card-text text-muted">
-                                                    Open scene
-                                                </p>
+                                                <div class="card-body">
 
-                                            </div>
+                                                    <h3 class="card-title h5">
+                                                        ${scene.title}
+                                                    </h3>
 
-                                        </button>
+                                                    <!-- Display the scene word count. -->
+                                                    <p class="card-text text-muted mb-0">
+                                                        ${formatWordCount(sceneWordCount)}
+                                                    </p>
 
-                                    </div>
-                                `).join("")}
+                                                </div>
+
+                                            </button>
+
+                                        </div>
+                                    `;
+                                }).join("")}
 
                             </div>
                         `
@@ -357,6 +444,9 @@ export function renderChapterView(container, project, chapter) {
 
 // Render the selected scene and provide a rich-text editor interface.
 export function renderSceneView(container, project, chapter, scene) {
+
+    // Calculate the word count currently stored in the scene.
+    const sceneWordCount = countSceneWords(scene.content);
 
     container.innerHTML = `
         <div class="container mt-5">
@@ -512,10 +602,7 @@ export function renderSceneView(container, project, chapter, scene) {
                     aria-label="Paragraph indentation"
                 >
 
-                    <!--
-                        Toggle a manuscript-style first-line indent.
-                        The default value will be 0.5 inches.
-                    -->
+                    <!-- Toggle a manuscript-style first-line indent. -->
                     <button
                         id="editor-first-line-indent"
                         class="btn btn-outline-secondary"
@@ -526,9 +613,7 @@ export function renderSceneView(container, project, chapter, scene) {
                     </button>
 
 
-                    <!--
-                        Move the entire paragraph further from the left margin.
-                    -->
+                    <!-- Move the entire paragraph further from the left margin. -->
                     <button
                         id="editor-indent"
                         class="btn btn-outline-secondary"
@@ -539,9 +624,7 @@ export function renderSceneView(container, project, chapter, scene) {
                     </button>
 
 
-                    <!--
-                        Move the entire paragraph back toward the left margin.
-                    -->
+                    <!-- Move the entire paragraph back toward the left margin. -->
                     <button
                         id="editor-outdent"
                         class="btn btn-outline-secondary"
@@ -558,11 +641,11 @@ export function renderSceneView(container, project, chapter, scene) {
                 <!-- LINE SPACING -->
                 <!-- ================================================== -->
 
-                <!--
-                    Select the line spacing used by the current paragraph.
-                    The selected value will be stored in TipTap's paragraph data.
-                -->
-                <div class="input-group" style="width: auto;">
+                <!-- Select the line spacing used by the current paragraph. -->
+                <div
+                    class="input-group"
+                    style="width: auto;"
+                >
 
                     <label
                         class="input-group-text"
@@ -653,6 +736,26 @@ export function renderSceneView(container, project, chapter, scene) {
                 class="form-control"
                 style="min-height: 500px;"
             ></div>
+
+
+            <!-- ====================================================== -->
+            <!-- EDITOR FOOTER -->
+            <!-- ====================================================== -->
+
+            <!--
+                The scene word count is displayed beneath the editor.
+                app.js will update this value live while the user writes.
+            -->
+            <div
+                class="d-flex justify-content-end mt-2"
+            >
+                <small
+                    id="scene-word-count"
+                    class="text-muted"
+                >
+                    ${formatWordCount(sceneWordCount)}
+                </small>
+            </div>
 
 
             <!-- ====================================================== -->

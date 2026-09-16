@@ -43,6 +43,9 @@ import {
     renderSceneView
 } from "./ui.js";
 
+// Used to calculate the live word count inside the scene editor.
+import { countSceneWords } from "./wordCount.js";
+
 
 // Main application container from index.html.
 const app = document.querySelector("#app");
@@ -334,6 +337,9 @@ function openScene(projectId, chapterId, sceneId) {
     const backButton = document.querySelector("#back-to-chapter");
     const saveButton = document.querySelector("#save-scene");
 
+    // Displays the scene word count below the editor.
+    const sceneWordCount = document.querySelector("#scene-word-count");
+
 
     // Basic formatting controls.
     const boldButton = document.querySelector("#editor-bold");
@@ -390,7 +396,7 @@ function openScene(projectId, chapterId, sceneId) {
             /*
              * Adds StoryForge-specific paragraph formatting.
              *
-             * Paragraphs can now store:
+             * Paragraphs can store:
              * - first-line indentation
              * - line spacing
              * - whole-paragraph indentation
@@ -412,6 +418,46 @@ function openScene(projectId, chapterId, sceneId) {
             }
         }
     });
+
+
+    // ========================================================
+    // WORD COUNT HELPERS
+    // ========================================================
+
+    /*
+     * Format a number for display beneath the editor.
+     *
+     * Examples:
+     * 1    -> "1 word"
+     * 1250 -> "1,250 words"
+     */
+    function formatLiveWordCount(count) {
+
+        const label = count === 1
+            ? "word"
+            : "words";
+
+        return `${count.toLocaleString()} ${label}`;
+    }
+
+
+    /*
+     * Recalculate the scene word count from the editor's current HTML.
+     *
+     * This runs while the user types, so the displayed count does
+     * not depend on the scene being manually saved first.
+     */
+    function updateLiveWordCount() {
+
+        // Get the scene's current formatted HTML from TipTap.
+        const content = editor.getHTML();
+
+        // Count only the visible written words.
+        const wordCount = countSceneWords(content);
+
+        // Update the muted word-count display beneath the editor.
+        sceneWordCount.textContent = formatLiveWordCount(wordCount);
+    }
 
 
     // ========================================================
@@ -527,30 +573,19 @@ function openScene(projectId, chapterId, sceneId) {
 
         const paragraphAttributes = getParagraphAttributes();
 
-        /*
-         * First Line appears active whenever the current paragraph
-         * is using StoryForge's 0.5-inch manuscript indent.
-         */
+        // Show whether the current paragraph has a first-line indent.
         setButtonActive(
             firstLineIndentButton,
             paragraphAttributes.textIndent === "0.5in"
         );
 
 
-        /*
-         * Keep the line-spacing dropdown matched to the current
-         * paragraph's stored lineHeight value.
-         *
-         * An empty string represents normal/default spacing.
-         */
+        // Match the line-spacing dropdown to the current paragraph.
         lineSpacingSelect.value =
             paragraphAttributes.lineHeight || "";
 
 
-        /*
-         * Disable Outdent when the paragraph is already at
-         * the normal left margin.
-         */
+        // Outdent is unavailable when the paragraph is already at zero.
         outdentButton.disabled =
             getParagraphIndentAmount() <= 0;
 
@@ -580,11 +615,20 @@ function openScene(projectId, chapterId, sceneId) {
     // Refresh toolbar state when the cursor or selection changes.
     editor.on("selectionUpdate", updateToolbarState);
 
-    // Refresh toolbar state whenever the document changes.
+    // Refresh toolbar state whenever an editor transaction occurs.
     editor.on("transaction", updateToolbarState);
 
-    // Set the correct toolbar state when the editor first opens.
+    /*
+     * Recalculate the word count whenever the document content changes.
+     *
+     * This makes the count increase and decrease live as the author types.
+     */
+    editor.on("update", updateLiveWordCount);
+
+
+    // Set the correct states when the editor first opens.
     updateToolbarState();
+    updateLiveWordCount();
 
 
     // ========================================================
@@ -684,10 +728,7 @@ function openScene(projectId, chapterId, sceneId) {
 
         const attributes = getParagraphAttributes();
 
-        /*
-         * If the paragraph is already indented, remove the indent.
-         * Otherwise apply the standard 0.5-inch indent.
-         */
+        // Remove the indent if already active, otherwise apply it.
         const newIndent =
             attributes.textIndent === "0.5in"
                 ? null
@@ -710,16 +751,11 @@ function openScene(projectId, chapterId, sceneId) {
     // WHOLE-PARAGRAPH INDENTATION
     // ========================================================
 
-    /*
-     * Increase the left indentation of the entire paragraph.
-     *
-     * Each click moves the paragraph by another 0.5 inches.
-     */
+    // Increase the entire paragraph indent by half an inch.
     indentButton.addEventListener("click", () => {
 
         const currentIndent = getParagraphIndentAmount();
 
-        // Increase the paragraph indent by half an inch.
         const newIndent = currentIndent + 0.5;
 
         editor
@@ -735,16 +771,12 @@ function openScene(projectId, chapterId, sceneId) {
     });
 
 
-    /*
-     * Reduce the left indentation of the entire paragraph.
-     *
-     * The paragraph cannot move further left than its normal margin.
-     */
+    // Decrease the entire paragraph indent by half an inch.
     outdentButton.addEventListener("click", () => {
 
         const currentIndent = getParagraphIndentAmount();
 
-        // Reduce the indent by half an inch.
+        // Prevent indentation from becoming negative.
         const newIndent = Math.max(
             0,
             currentIndent - 0.5
@@ -752,8 +784,7 @@ function openScene(projectId, chapterId, sceneId) {
 
 
         /*
-         * Store null when the paragraph returns to zero indent.
-         * This prevents unnecessary margin-left styles being saved.
+         * Remove the style entirely when returning to zero indent.
          */
         const marginLeft =
             newIndent === 0
@@ -781,21 +812,12 @@ function openScene(projectId, chapterId, sceneId) {
     // Apply the selected line spacing to the current paragraph.
     lineSpacingSelect.addEventListener("change", () => {
 
-        /*
-         * Values may be:
-         *
-         * ""     = normal/default spacing
-         * "1"    = single spacing
-         * "1.15" = slightly increased spacing
-         * "1.5"  = one-and-a-half spacing
-         * "2"    = double spacing
-         */
         const selectedSpacing = lineSpacingSelect.value;
 
 
         /*
-         * Use null for Normal so no unnecessary line-height
-         * style is written into the saved HTML.
+         * An empty value represents normal/default spacing,
+         * so no line-height style needs to be stored.
          */
         const lineHeight =
             selectedSpacing === ""
@@ -850,11 +872,9 @@ function openScene(projectId, chapterId, sceneId) {
     saveButton.addEventListener("click", () => {
 
         /*
-         * getHTML() preserves formatting including:
+         * getHTML() preserves:
          *
-         * - bold
-         * - italic
-         * - underline
+         * - rich-text formatting
          * - text alignment
          * - first-line indentation
          * - paragraph indentation
@@ -879,12 +899,7 @@ function openScene(projectId, chapterId, sceneId) {
         // Return the button to its normal label shortly afterward.
         setTimeout(() => {
 
-            /*
-             * Check that the button still exists before changing it.
-             * The user may have navigated away during the timeout.
-             */
             if (saveButton.isConnected) {
-
                 saveButton.textContent = "Save Scene";
             }
 
