@@ -1,48 +1,78 @@
 /* ============================================================
    STORYFORGE
-   Base application styling
+   Main application styling
    ============================================================ */
+
+   /* Heading Logo */
+   .header-logo {
+    width: 50%
+   }
 
 
 /* ============================================================
-   COLOUR PALETTE
+   STORYFORGE COLOUR PALETTE
    ============================================================ */
 
 :root {
 
-    /* Main application backgrounds. */
-    --sf-bg: #121212;
-    --sf-surface: #2a2a2a;
-    --sf-surface-hover: #333333;
+    /* Main application background. */
+    --sf-bg: #f7f7f4;
 
-    /* Borders and muted interface elements. */
-    --sf-border: #3f3f3f;
+    /* Cards, panels, sidebars, and secondary surfaces. */
+    --sf-surface: #eef3f2;
 
-    /* Main text colours. */
-    --sf-text: #eaeaea;
-    --sf-text-muted: #a8a8a8;
+    /* Slightly stronger surface colour for hover states. */
+    --sf-surface-hover: #e2ecea;
 
-    /* Brand accents. */
-    --sf-plum: #9d174d;
-    --sf-plum-hover: #be185d;
-    --sf-gold: #facc15;
+    /* Primary StoryForge brand colour. */
+    --sf-primary: #147c7a;
 
-    /* Manuscript editor colours. */
-    --sf-paper: #f4efe6;
-    --sf-paper-border: #d8cfc0;
-    --sf-ink: #211d19;
+    /* Darker primary used for stronger buttons and hover states. */
+    --sf-primary-hover: #106866;
 
-    /* Destructive actions. */
-    --sf-danger: #b91c1c;
-    --sf-danger-hover: #dc2626;
+    /* Bright accent used for focus, highlights, and active details. */
+    --sf-accent: #27d9d3;
 
-    /* General sizing. */
-    --sf-radius: 0.65rem;
+    /* Deep teal used for headings and major visual anchors. */
+    --sf-deep: #12383b;
 
-    /* Soft shadow used throughout the interface. */
+    /* Main interface text. */
+    --sf-text: #162326;
+
+    /* Secondary and muted interface text. */
+    --sf-text-muted: #607578;
+
+    /* Warm contrast accent. */
+    --sf-copper: #a65b32;
+
+    /* Slightly darker copper for hover states. */
+    --sf-copper-hover: #8e4c2a;
+
+    /* Borders and separators. */
+    --sf-border: #ccd9d8;
+
+    /* Clean white surface used for the manuscript page. */
+    --sf-white: #ffffff;
+
+    /* Destructive action colours. */
+    --sf-danger: #a53b3b;
+    --sf-danger-hover: #872f2f;
+
+    /* General corner rounding. */
+    --sf-radius: 0.1rem;
+
+    /* Slightly smaller rounding for compact controls. */
+    --sf-radius-small: 0.1rem;
+
+    /* Subtle interface shadow. */
     --sf-shadow:
-        0 0.5rem 1.5rem
-        rgba(0, 0, 0, 0.25);
+        0 0.4rem 1.2rem
+        rgba(18, 56, 59, 0.10);
+
+    /* Slightly stronger shadow for floating menus. */
+    --sf-shadow-strong:
+        0 0.7rem 1.8rem
+        rgba(18, 56, 59, 0.16);
 }
 
 
@@ -66,10 +96,10 @@ body {
     color: var(--sf-text);
 
     /*
-     * Use the operating system's clean sans-serif font for
-     * normal interface text.
+     * Keep normal application text clean and readable.
      *
-     * We can replace this with Inter later if desired.
+     * Cinzel is reserved for branding and headings so the
+     * whole application does not look like a rune stone.
      */
     font-family:
         system-ui,
@@ -81,8 +111,7 @@ body {
 
 
 /*
- * Keep Bootstrap containers sitting naturally on the
- * StoryForge dark background.
+ * Ensure the StoryForge application fills the viewport.
  */
 #app {
 
@@ -90,13 +119,25 @@ body {
 }
 
 
+/*
+ * Make text selection feel part of the StoryForge palette.
+ */
+::selection {
+
+    background-color: var(--sf-accent);
+
+    color: var(--sf-deep);
+}
+
+
 /* ============================================================
-   HEADINGS AND BRAND TYPOGRAPHY
+   TYPOGRAPHY
    ============================================================ */
 
 /*
- * Cinzel gives StoryForge its old-world / forged identity
- * without making normal interface text difficult to read.
+ * Cinzel is StoryForge's display font.
+ *
+ * Use it for headings, titles, and brand identity.
  */
 h1,
 h2,
@@ -105,7 +146,7 @@ h4,
 h5,
 h6 {
 
-    color: var(--sf-text);
+    color: var(--sf-deep);
 
     font-family:
         "Cinzel",
@@ -116,7 +157,7 @@ h6 {
 
 
 /*
- * Give major page headings slightly more visual presence.
+ * Give top-level headings a little more character.
  */
 h1 {
 
@@ -125,12 +166,20 @@ h1 {
 
 
 /*
- * Bootstrap sometimes supplies its own muted colour.
- * Override it so muted text remains readable on dark surfaces.
+ * Secondary text uses the Grey Teal palette colour.
  */
 .text-muted {
 
     color: var(--sf-text-muted) !important;
+}
+
+
+/*
+ * Strong text should inherit StoryForge's main text colour.
+ */
+strong {
+
+    color: inherit;
 }
 
 
@@ -140,18 +189,21 @@ h1 {
 
 a {
 
-    color: var(--sf-gold);
+    color: var(--sf-primary);
+
+    text-decoration-color:
+        rgba(20, 124, 122, 0.4);
 }
 
 
 a:hover {
 
-    color: #fde047;
+    color: var(--sf-deep);
 }
 
 
 /* ============================================================
-   CARDS
+   CARDS AND PANELS
    ============================================================ */
 
 .card {
@@ -169,17 +221,18 @@ a:hover {
 
 
 /*
- * Smooth interaction for project, chapter, and scene cards.
+ * Project, chapter, and scene cards contain their own
+ * transparent navigation button.
  */
 .project-card,
 .chapter-card,
 .scene-card {
 
-    color: inherit;
+    color: var(--sf-text);
 
     transition:
-        background-color 0.2s ease,
-        transform 0.2s ease;
+        color 0.18s ease,
+        transform 0.18s ease;
 }
 
 
@@ -187,15 +240,17 @@ a:hover {
 .chapter-card:hover,
 .scene-card:hover {
 
-    color: inherit;
+    color: var(--sf-primary);
 
     transform: translateY(-1px);
 }
 
 
 /*
- * Because the clickable area lives inside the Bootstrap card,
- * give the card body a subtle hover response.
+ * Highlight the parent card when its navigation area is hovered.
+ *
+ * Modern browsers support :has(), and it gives us a much cleaner
+ * effect than colouring every card indiscriminately.
  */
 .card:has(.project-card:hover),
 .card:has(.chapter-card:hover),
@@ -203,7 +258,16 @@ a:hover {
 
     background-color: var(--sf-surface-hover);
 
-    border-color: var(--sf-plum);
+    border-color: var(--sf-primary);
+}
+
+
+/*
+ * Keep headings inside cards clean.
+ */
+.card-title {
+
+    color: var(--sf-deep);
 }
 
 
@@ -213,7 +277,7 @@ a:hover {
 
 .form-label {
 
-    color: var(--sf-text);
+    color: var(--sf-deep);
 
     font-weight: 600;
 }
@@ -222,49 +286,59 @@ a:hover {
 .form-control,
 .form-select {
 
-    background-color: #1c1c1c;
+    background-color: var(--sf-white);
 
     color: var(--sf-text);
 
     border: 1px solid var(--sf-border);
 
-    border-radius: var(--sf-radius);
+    border-radius: var(--sf-radius-small);
+
+    transition:
+        border-color 0.18s ease,
+        box-shadow 0.18s ease;
+}
+
+
+.form-control:hover,
+.form-select:hover {
+
+    border-color: var(--sf-primary);
 }
 
 
 .form-control:focus,
 .form-select:focus {
 
-    background-color: #1c1c1c;
+    background-color: var(--sf-white);
 
     color: var(--sf-text);
 
-    border-color: var(--sf-plum);
+    border-color: var(--sf-primary);
 
     box-shadow:
         0 0 0 0.2rem
-        rgba(157, 23, 77, 0.2);
+        rgba(39, 217, 211, 0.22);
 }
 
 
 /*
- * Make placeholder text readable without competing
- * with entered content.
+ * Keep placeholder text subtle.
  */
 .form-control::placeholder {
 
-    color: #777777;
+    color: var(--sf-text-muted);
 
-    opacity: 1;
+    opacity: 0.7;
 }
 
 
 /*
- * Keep dropdown options readable when the select opens.
+ * Ensure select options remain readable.
  */
 .form-select option {
 
-    background-color: var(--sf-surface);
+    background-color: var(--sf-white);
 
     color: var(--sf-text);
 }
@@ -276,24 +350,38 @@ a:hover {
 
 .btn-primary {
 
-    background-color: var(--sf-plum);
+    background-color: var(--sf-primary);
 
-    border-color: var(--sf-plum);
+    border-color: var(--sf-primary);
 
-    color: #ffffff;
+    color: var(--sf-white);
 
     font-weight: 600;
+
+    border-radius: var(--sf-radius-small);
+
+    transition:
+        background-color 0.18s ease,
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        transform 0.18s ease;
 }
 
 
 .btn-primary:hover,
 .btn-primary:focus {
 
-    background-color: var(--sf-plum-hover);
+    background-color: var(--sf-primary-hover);
 
-    border-color: var(--sf-plum-hover);
+    border-color: var(--sf-primary-hover);
 
-    color: #ffffff;
+    color: var(--sf-white);
+}
+
+
+.btn-primary:hover {
+
+    transform: translateY(-1px);
 }
 
 
@@ -301,19 +389,28 @@ a:hover {
 
     box-shadow:
         0 0 0 0.2rem
-        rgba(157, 23, 77, 0.3);
+        rgba(39, 217, 211, 0.28);
 }
 
 
 /* ============================================================
-   SECONDARY / OUTLINE BUTTONS
+   SECONDARY BUTTONS
    ============================================================ */
 
 .btn-outline-secondary {
 
-    color: var(--sf-text);
+    background-color: transparent;
+
+    color: var(--sf-deep);
 
     border-color: var(--sf-border);
+
+    border-radius: var(--sf-radius-small);
+
+    transition:
+        background-color 0.18s ease,
+        border-color 0.18s ease,
+        color 0.18s ease;
 }
 
 
@@ -321,23 +418,37 @@ a:hover {
 
     background-color: var(--sf-surface-hover);
 
-    color: var(--sf-text);
+    color: var(--sf-primary);
 
-    border-color: var(--sf-plum);
+    border-color: var(--sf-primary);
 }
 
 
 /*
- * Used by the rich-text toolbar to show that a formatting
- * option is currently active.
+ * Active toolbar buttons use the main Nordic Teal.
  */
 .btn-outline-secondary.active {
 
-    background-color: var(--sf-plum);
+    background-color: var(--sf-primary);
 
-    color: #ffffff;
+    color: var(--sf-white);
 
-    border-color: var(--sf-plum);
+    border-color: var(--sf-primary);
+}
+
+
+/*
+ * Disabled formatting buttons should remain visibly inactive.
+ */
+.btn-outline-secondary:disabled {
+
+    background-color: transparent;
+
+    color: var(--sf-text-muted);
+
+    border-color: var(--sf-border);
+
+    opacity: 0.45;
 }
 
 
@@ -347,9 +458,13 @@ a:hover {
 
 .btn-outline-danger {
 
-    color: #f87171;
+    background-color: transparent;
+
+    color: var(--sf-danger);
 
     border-color: var(--sf-danger);
+
+    border-radius: var(--sf-radius-small);
 }
 
 
@@ -357,9 +472,9 @@ a:hover {
 
     background-color: var(--sf-danger-hover);
 
-    border-color: var(--sf-danger-hover);
+    color: var(--sf-white);
 
-    color: #ffffff;
+    border-color: var(--sf-danger-hover);
 }
 
 
@@ -380,7 +495,7 @@ hr {
    ============================================================ */
 
 /*
- * Remove the browser's default disclosure triangle.
+ * Remove the browser's default disclosure arrow.
  */
 details > summary {
 
@@ -397,20 +512,44 @@ details > summary::-webkit-details-marker {
 
 
 /*
- * Style the floating menu panel.
- *
- * Bootstrap supplies several utility classes already,
- * so this mainly corrects the colours.
+ * Floating project, chapter, and scene action menu.
  */
 details > div {
 
-    background-color: var(--sf-surface) !important;
-
-    border-color: var(--sf-border) !important;
+    background-color: var(--sf-white) !important;
 
     color: var(--sf-text);
 
-    box-shadow: var(--sf-shadow) !important;
+    border-color: var(--sf-border) !important;
+
+    box-shadow: var(--sf-shadow-strong) !important;
+}
+
+
+/*
+ * Give the three-dot button a more deliberate appearance
+ * while its menu is open.
+ */
+details[open] > summary {
+
+    background-color: var(--sf-surface-hover);
+
+    color: var(--sf-primary);
+
+    border-color: var(--sf-primary);
+}
+
+
+/* ============================================================
+   EDITOR LAYOUT
+   ============================================================ */
+
+/*
+ * Give the writing screen slightly more breathing room.
+ */
+main {
+
+    min-width: 0;
 }
 
 
@@ -420,19 +559,22 @@ details > div {
 
 #scene-editor-toolbar {
 
-    padding: 0.75rem;
+    padding: 0.8rem;
 
     background-color: var(--sf-surface);
 
     border: 1px solid var(--sf-border);
 
     border-radius: var(--sf-radius);
+
+    box-shadow:
+        0 0.2rem 0.7rem
+        rgba(18, 56, 59, 0.06);
 }
 
 
 /*
- * Make toolbar controls slightly more compact than
- * StoryForge's larger navigation buttons.
+ * Keep formatting controls compact.
  */
 #scene-editor-toolbar .btn {
 
@@ -441,16 +583,26 @@ details > div {
 
 
 /*
- * Keep the line-spacing control visually connected
- * to the rest of the toolbar.
+ * Style the line spacing label.
  */
 #scene-editor-toolbar .input-group-text {
 
-    background-color: #1c1c1c;
+    background-color: var(--sf-deep);
 
-    color: var(--sf-text);
+    color: var(--sf-white);
 
-    border-color: var(--sf-border);
+    border-color: var(--sf-deep);
+
+    font-size: 0.9rem;
+}
+
+
+/*
+ * Keep the toolbar select slightly smaller than main forms.
+ */
+#scene-editor-toolbar .form-select {
+
+    font-size: 0.9rem;
 }
 
 
@@ -459,30 +611,31 @@ details > div {
    ============================================================ */
 
 /*
- * The editor deliberately uses a light manuscript-style surface.
+ * The manuscript itself sits on a clean white page.
  *
- * This visually separates the author's actual writing from the
- * surrounding application interface.
+ * This separates the writing surface from the warmer main
+ * background and Cool Mist interface panels.
  */
 #scene-editor {
 
     min-height: 500px;
 
-    padding: 2.5rem !important;
+    padding: 2.75rem !important;
 
-    background-color: var(--sf-paper);
+    background-color: var(--sf-white);
 
-    color: var(--sf-ink);
+    color: var(--sf-text);
 
-    border: 1px solid var(--sf-paper-border);
+    border: 1px solid var(--sf-border);
 
     border-radius: var(--sf-radius);
 
-    box-shadow: var(--sf-shadow);
+    box-shadow:
+        0 0.6rem 2rem
+        rgba(18, 56, 59, 0.10);
 
     /*
-     * A traditional serif font makes long-form writing
-     * more comfortable and manuscript-like.
+     * A traditional serif works better for long-form prose.
      */
     font-family:
         Georgia,
@@ -496,8 +649,8 @@ details > div {
 
 
 /*
- * TipTap places the editable ProseMirror document
- * inside #scene-editor.
+ * TipTap places the actual editable document inside
+ * this ProseMirror element.
  */
 #scene-editor .ProseMirror {
 
@@ -508,7 +661,7 @@ details > div {
 
 
 /*
- * Keep paragraphs comfortably spaced while writing.
+ * Comfortable paragraph spacing while drafting.
  */
 #scene-editor .ProseMirror p {
 
@@ -519,8 +672,10 @@ details > div {
 
 
 /*
- * Preserve dark manuscript text even if Bootstrap or another
- * global selector tries to interfere.
+ * Headings inside the manuscript belong to the manuscript,
+ * not the StoryForge interface.
+ *
+ * Do not apply Cinzel inside the actual document.
  */
 #scene-editor h1,
 #scene-editor h2,
@@ -529,36 +684,60 @@ details > div {
 #scene-editor h5,
 #scene-editor h6 {
 
-    color: var(--sf-ink);
+    color: var(--sf-text);
 
-    /*
-     * Manuscript headings use the editor's serif family rather
-     * than Cinzel because they are part of the written document.
-     */
     font-family:
         Georgia,
         "Times New Roman",
         serif;
+
+    letter-spacing: normal;
+}
+
+
+/*
+ * Use a softer cyan selection colour inside the manuscript.
+ */
+#scene-editor ::selection {
+
+    background-color:
+        rgba(39, 217, 211, 0.28);
+
+    color: var(--sf-text);
 }
 
 
 /* ============================================================
-   AUTOSAVE / WORD COUNT FOOTER
+   AUTOSAVE AND WORD COUNT
    ============================================================ */
 
 #scene-save-status,
 #scene-word-count {
 
     font-size: 0.85rem;
+
+    font-weight: 500;
 }
 
 
 /*
- * Give the save state just a hint of the gold accent.
+ * Autosave gets a tiny touch of Burnished Copper.
+ *
+ * This is deliberately subtle so copper remains an accent
+ * instead of invading the entire application like plumbing.
  */
 #scene-save-status {
 
-    color: var(--sf-gold) !important;
+    color: var(--sf-copper) !important;
+}
+
+
+/*
+ * Word count stays understated.
+ */
+#scene-word-count {
+
+    color: var(--sf-text-muted) !important;
 }
 
 
@@ -566,12 +745,12 @@ details > div {
    DESKTOP EDITOR SIDEBAR
    ============================================================ */
 
+/*
+ * Keep the chapter/scene navigation visible while writing
+ * longer scenes.
+ */
 #editor-sidebar .card {
 
-    /*
-     * Keep the navigation visible while writing through
-     * longer scenes on desktop.
-     */
     position: sticky;
 
     top: 1.5rem;
@@ -579,15 +758,33 @@ details > div {
     max-height: calc(100vh - 3rem);
 
     overflow-y: auto;
+
+    background-color: var(--sf-surface);
 }
 
 
 /*
- * Chapter buttons in the sidebar.
+ * Project title inside the sidebar.
  */
+#editor-sidebar h2 {
+
+    color: var(--sf-deep);
+}
+
+
+/* ============================================================
+   SIDEBAR CHAPTERS
+   ============================================================ */
+
 .editor-sidebar-chapter {
 
-    color: var(--sf-text);
+    color: var(--sf-deep);
+
+    border-radius: var(--sf-radius-small);
+
+    transition:
+        background-color 0.18s ease,
+        color 0.18s ease;
 }
 
 
@@ -595,7 +792,23 @@ details > div {
 
     background-color: var(--sf-surface-hover);
 
-    color: var(--sf-gold);
+    color: var(--sf-primary);
+}
+
+
+/*
+ * The currently active chapter is already given Bootstrap's
+ * fw-bold class by ui.js.
+ *
+ * Give it a subtle teal marker as well.
+ */
+.editor-sidebar-chapter.fw-bold {
+
+    color: var(--sf-primary);
+
+    border-left:
+        3px solid
+        var(--sf-accent);
 }
 
 
@@ -610,6 +823,11 @@ details > div {
     color: var(--sf-text);
 
     border-color: var(--sf-border);
+
+    transition:
+        background-color 0.18s ease,
+        color 0.18s ease,
+        border-color 0.18s ease;
 }
 
 
@@ -617,7 +835,9 @@ details > div {
 
     background-color: var(--sf-surface-hover);
 
-    color: var(--sf-text);
+    color: var(--sf-deep);
+
+    border-color: var(--sf-primary);
 }
 
 
@@ -626,21 +846,25 @@ details > div {
  */
 .editor-sidebar-scene.active {
 
-    background-color: var(--sf-plum);
+    background-color: var(--sf-primary);
 
-    color: #ffffff;
+    color: var(--sf-white);
 
-    border-color: var(--sf-plum);
+    border-color: var(--sf-primary);
+
+    box-shadow:
+        inset 4px 0 0
+        var(--sf-accent);
 }
 
 
 /*
- * Bootstrap's active list items inherit some text colours.
- * Keep the active scene's secondary information readable.
+ * Keep active-scene metadata readable.
  */
 .editor-sidebar-scene.active small {
 
-    color: #f3d9e3 !important;
+    color:
+        rgba(255, 255, 255, 0.78) !important;
 }
 
 
@@ -649,7 +873,7 @@ details > div {
    ============================================================ */
 
 /*
- * Small quality-of-life styling for browsers that support
+ * Subtle scrollbar styling for browsers that support
  * WebKit scrollbar selectors.
  */
 ::-webkit-scrollbar {
@@ -671,35 +895,36 @@ details > div {
     background-color: var(--sf-border);
 
     border-radius: 999px;
+
+    border:
+        2px solid
+        var(--sf-bg);
 }
 
 
 ::-webkit-scrollbar-thumb:hover {
 
-    background-color: var(--sf-plum);
+    background-color: var(--sf-primary);
 }
 
 
 /* ============================================================
-   TEXT SELECTION
+   FOCUS ACCESSIBILITY
    ============================================================ */
 
-::selection {
-
-    background-color: var(--sf-plum);
-
-    color: #ffffff;
-}
-
-
 /*
- * Use a softer selection colour inside the manuscript page.
+ * Give keyboard users a clear StoryForge focus indicator.
  */
-#scene-editor ::selection {
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
 
-    background-color: rgba(157, 23, 77, 0.3);
+    outline:
+        3px solid
+        rgba(39, 217, 211, 0.55);
 
-    color: var(--sf-ink);
+    outline-offset: 2px;
 }
 
 
@@ -710,18 +935,17 @@ details > div {
 @media (max-width: 991.98px) {
 
     /*
-     * Give the manuscript editor slightly less padding on
-     * tablets and phones where horizontal space is limited.
+     * Reduce manuscript padding where screen space
+     * becomes more limited.
      */
     #scene-editor {
 
-        padding: 1.5rem !important;
+        padding: 1.75rem !important;
     }
 
 
     /*
-     * Let toolbar controls wrap naturally without becoming
-     * enormous on smaller displays.
+     * Let toolbar controls wrap naturally.
      */
     #scene-editor-toolbar {
 
@@ -732,20 +956,41 @@ details > div {
 
 @media (max-width: 575.98px) {
 
+    /*
+     * Phone-sized manuscript editor.
+     */
     #scene-editor {
 
-        padding: 1rem !important;
+        padding: 1.1rem !important;
 
         font-size: 1rem;
+
+        border-radius: var(--sf-radius-small);
     }
 
 
     /*
-     * Slightly reduce major headings so they fit better
-     * on narrow phone displays.
+     * Keep major headings from dominating narrow screens.
      */
     h1 {
 
         font-size: 1.8rem;
+    }
+
+
+    /*
+     * Make the rich-text toolbar slightly more compact.
+     */
+    #scene-editor-toolbar {
+
+        padding: 0.6rem;
+    }
+
+
+    #scene-editor-toolbar .btn,
+    #scene-editor-toolbar .form-select,
+    #scene-editor-toolbar .input-group-text {
+
+        font-size: 0.82rem;
     }
 }

@@ -40,7 +40,7 @@ export function renderCreateProjectForm(container) {
         <div class="container mt-5">
 
             <!-- Main StoryForge heading. -->
-            <h1>StoryForge</h1>
+            <img class="header-logo" src="/src/images/heading-logo.png">
 
             <!-- Form used to create a new writing project. -->
             <form id="create-project-form" class="mt-4">
