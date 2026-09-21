@@ -6,6 +6,9 @@ import {
     countProjectWords
 } from "./wordCount.js";
 
+// Import the StoryForge heading logo through Vite.
+import headingLogo from "../images/heading-logo.png";
+
 
 // ============================================================
 // WORD COUNT DISPLAY HELPER
@@ -30,6 +33,51 @@ function formatWordCount(count) {
 
 
 // ============================================================
+// APPLICATION NAVIGATION
+// ============================================================
+
+/*
+ * Build the shared StoryForge navigation bar.
+ *
+ * This appears at the top of every main application view.
+ * Clicking the logo is handled by app.js and returns
+ * the user to the main dashboard.
+ */
+function renderNavbar() {
+
+    return `
+        <nav class="storyforge-nav">
+
+            <div class="container">
+
+                <!--
+                    StoryForge logo acts as the application Home button.
+
+                    app.js listens for clicks on .storyforge-home.
+                -->
+                <button
+                    class="storyforge-home"
+                    type="button"
+                    aria-label="Return to StoryForge dashboard"
+                    title="StoryForge Dashboard"
+                >
+
+                    <img
+                        class="storyforge-nav-logo"
+                        src="${headingLogo}"
+                        alt="StoryForge"
+                    >
+
+                </button>
+
+            </div>
+
+        </nav>
+    `;
+}
+
+
+// ============================================================
 // PROJECT CREATION VIEW
 // ============================================================
 
@@ -37,13 +85,12 @@ function formatWordCount(count) {
 export function renderCreateProjectForm(container) {
 
     container.innerHTML = `
-        <div class="container mt-5">
+        ${renderNavbar()}
 
-            <!-- Main StoryForge heading. -->
-            <img class="header-logo" src="/src/images/heading-logo.png">
+        <div class="container mt-4">
 
             <!-- Form used to create a new writing project. -->
-            <form id="create-project-form" class="mt-4">
+            <form id="create-project-form">
 
                 <div class="mb-3">
 
@@ -263,7 +310,9 @@ export function renderProjectView(container, project) {
     const projectWordCount = countProjectWords(project);
 
     container.innerHTML = `
-        <div class="container mt-5">
+        ${renderNavbar()}
+
+        <div class="container mt-4">
 
             <!-- Return to the main project dashboard. -->
             <button
@@ -508,7 +557,9 @@ export function renderChapterView(container, project, chapter) {
     const chapterWordCount = countChapterWords(chapter);
 
     container.innerHTML = `
-        <div class="container mt-5">
+        ${renderNavbar()}
+
+        <div class="container mt-4">
 
             <!-- Return to the project that contains this chapter. -->
             <button
@@ -743,6 +794,8 @@ export function renderSceneView(container, project, chapter, scene) {
     const sceneWordCount = countSceneWords(scene.content);
 
     container.innerHTML = `
+        ${renderNavbar()}
+
         <div class="container-fluid mt-4 px-3 px-lg-4">
 
 

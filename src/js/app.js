@@ -1,5 +1,6 @@
 // Coordinates the dashboard, project view, chapter view, scene editor,
-// autosave behaviour, record management, and user interactions.
+// autosave behaviour, record management, global navigation,
+// and user interactions.
 
 
 // ============================================================
@@ -9,8 +10,7 @@
 // Core TipTap editor.
 import { Editor } from "@tiptap/core";
 
-// StarterKit provides common formatting features such as:
-// bold, italic, underline, headings, lists, undo, and redo.
+// StarterKit provides common formatting features.
 import StarterKit from "@tiptap/starter-kit";
 
 // Adds paragraph and heading alignment controls.
@@ -48,12 +48,56 @@ import {
     renderSceneView
 } from "./ui.js";
 
-// Used to calculate the live word count inside the scene editor.
 import { countSceneWords } from "./wordCount.js";
 
 
 // Main application container from index.html.
 const app = document.querySelector("#app");
+
+
+/*
+ * Stores a cleanup function while a scene editor is active.
+ *
+ * This lets global navigation safely save and destroy the
+ * current TipTap editor before replacing the page.
+ */
+let activeSceneCleanup = null;
+
+
+// ============================================================
+// GLOBAL NAVIGATION
+// ============================================================
+
+/*
+ * Handle clicks on the StoryForge logo from any application view.
+ *
+ * Event delegation means this keeps working even though ui.js
+ * repeatedly replaces the contents of #app.
+ */
+app.addEventListener("click", (event) => {
+
+    // Check whether the StoryForge logo/home button was clicked.
+    const homeButton =
+        event.target.closest(".storyforge-home");
+
+    // Ignore unrelated clicks.
+    if (!homeButton) {
+        return;
+    }
+
+
+    /*
+     * If a scene editor is currently open, save any pending
+     * changes and destroy TipTap before leaving.
+     */
+    if (activeSceneCleanup) {
+        activeSceneCleanup();
+    }
+
+
+    // Return to the main StoryForge dashboard.
+    showDashboard();
+});
 
 
 // ============================================================
@@ -66,22 +110,30 @@ function showDashboard() {
     // Build the dashboard interface.
     renderCreateProjectForm(app);
 
-    // Get references to the dashboard elements.
-    const form = document.querySelector("#create-project-form");
-    const titleInput = document.querySelector("#project-title");
-    const projectList = document.querySelector("#project-list");
+    // Get references to dashboard elements.
+    const form =
+        document.querySelector("#create-project-form");
+
+    const titleInput =
+        document.querySelector("#project-title");
+
+    const projectList =
+        document.querySelector("#project-list");
 
 
-    // Re-read storage so the project list always reflects the latest data.
+    // Re-read storage so the project list always shows current data.
     function refreshProjectList() {
 
         const projects = getProjects();
 
-        renderProjectList(projectList, projects);
+        renderProjectList(
+            projectList,
+            projects
+        );
     }
 
 
-    // Display existing projects when the dashboard loads.
+    // Display existing projects.
     refreshProjectList();
 
 
@@ -91,24 +143,25 @@ function showDashboard() {
 
     form.addEventListener("submit", (event) => {
 
-        // Stop the form from refreshing the page.
+        // Stop the browser from refreshing the page.
         event.preventDefault();
 
-        // Clean up the entered project title.
-        const title = titleInput.value.trim();
+        // Clean up the entered title.
+        const title =
+            titleInput.value.trim();
 
-        // Do not create a project with an empty title.
+        // Do not create an empty project title.
         if (!title) {
             return;
         }
 
-        // Create and save the new project.
+        // Create and save the project.
         addProject(title);
 
-        // Clear the input after creation.
+        // Clear the input.
         titleInput.value = "";
 
-        // Refresh the project cards.
+        // Display the updated project collection.
         refreshProjectList();
     });
 
@@ -118,10 +171,10 @@ function showDashboard() {
     // ========================================================
 
     /*
-     * Use one click listener for the entire project list.
+     * Use one listener for the project list.
      *
-     * This continues working even after the project cards are
-     * re-rendered following a rename, delete, or creation.
+     * This continues working after the project cards are
+     * re-rendered following creation, rename, or deletion.
      */
     projectList.addEventListener("click", (event) => {
 
@@ -146,16 +199,12 @@ function showDashboard() {
             }
 
 
-            /*
-             * Ask for the replacement title.
-             *
-             * Native prompt dialogs are temporary MVP UI.
-             * These can become custom StoryForge modals later.
-             */
-            const newTitle = window.prompt(
-                "Rename project:",
-                project.title
-            );
+            // Ask for the replacement title.
+            const newTitle =
+                window.prompt(
+                    "Rename project:",
+                    project.title
+                );
 
 
             // Cancel was selected.
@@ -172,7 +221,7 @@ function showDashboard() {
                 );
 
 
-            // Refresh only if a valid title was supplied.
+            // Refresh if the rename succeeded.
             if (renamedProject) {
                 refreshProjectList();
             }
@@ -202,18 +251,16 @@ function showDashboard() {
             }
 
 
-            /*
-             * Warn clearly because deleting a project also removes
-             * every chapter, scene, and piece of writing inside it.
-             */
-            const confirmed = window.confirm(
-                `Delete "${project.title}"?\n\n` +
-                "This will permanently delete the project, " +
-                "including all chapters, scenes, and written content."
-            );
+            // Warn that everything nested inside will disappear.
+            const confirmed =
+                window.confirm(
+                    `Delete "${project.title}"?\n\n` +
+                    "This will permanently delete the project, " +
+                    "including all chapters, scenes, and written content."
+                );
 
 
-            // Leave the project untouched if deletion was cancelled.
+            // Leave the project untouched if cancelled.
             if (!confirmed) {
                 return;
             }
@@ -236,12 +283,12 @@ function showDashboard() {
         const projectCard =
             event.target.closest(".project-card");
 
-        // Ignore clicks that did not happen inside a project card.
+        // Ignore unrelated clicks.
         if (!projectCard) {
             return;
         }
 
-        // Read the stored project ID.
+
         const projectId =
             projectCard.dataset.projectId;
 
@@ -258,8 +305,9 @@ function showDashboard() {
 // Render one project and attach chapter management handlers.
 function openProject(projectId) {
 
-    // Load the selected project from storage.
-    const project = getProjectById(projectId);
+    // Load the selected project.
+    const project =
+        getProjectById(projectId);
 
     // Stop if the project could not be found.
     if (!project) {
@@ -268,10 +316,13 @@ function openProject(projectId) {
 
 
     // Build the project interface.
-    renderProjectView(app, project);
+    renderProjectView(
+        app,
+        project
+    );
 
 
-    // Get references to project view controls.
+    // Get references to project controls.
     const backButton =
         document.querySelector("#back-to-projects");
 
@@ -307,17 +358,16 @@ function openProject(projectId) {
 
     chapterForm.addEventListener("submit", (event) => {
 
-        // Stop the form from refreshing the page.
         event.preventDefault();
 
-        // Clean up the entered chapter title.
         const title =
             chapterTitleInput.value.trim();
 
-        // Do not create an empty chapter title.
+        // Do not create an empty chapter.
         if (!title) {
             return;
         }
+
 
         // Add the chapter to the selected project.
         addChapterToProject(
@@ -325,10 +375,8 @@ function openProject(projectId) {
             title
         );
 
-        /*
-         * Re-open the project so the new chapter appears
-         * immediately with fresh project data.
-         */
+
+        // Reload the project with fresh data.
         openProject(projectId);
     });
 
@@ -341,11 +389,9 @@ function openProject(projectId) {
 
         chapterCard.addEventListener("click", () => {
 
-            // Read the chapter ID stored on the card.
             const chapterId =
                 chapterCard.dataset.chapterId;
 
-            // Open the selected chapter.
             openChapter(
                 projectId,
                 chapterId
@@ -365,33 +411,31 @@ function openProject(projectId) {
             const chapterId =
                 renameButton.dataset.chapterId;
 
-            // Find the chapter being renamed.
+
             const chapter =
                 project.chapters.find(
                     chapter =>
                         chapter.id === chapterId
                 );
 
-            // Stop if the chapter could not be found.
+
             if (!chapter) {
                 return;
             }
 
 
-            // Ask the user for the replacement chapter title.
-            const newTitle = window.prompt(
-                "Rename chapter:",
-                chapter.title
-            );
+            const newTitle =
+                window.prompt(
+                    "Rename chapter:",
+                    chapter.title
+                );
 
 
-            // Cancel was selected.
             if (newTitle === null) {
                 return;
             }
 
 
-            // Rename the chapter.
             const renamedChapter =
                 renameChapter(
                     projectId,
@@ -400,7 +444,6 @@ function openProject(projectId) {
                 );
 
 
-            // Reload the project if the rename succeeded.
             if (renamedChapter) {
                 openProject(projectId);
             }
@@ -419,44 +462,38 @@ function openProject(projectId) {
             const chapterId =
                 deleteButton.dataset.chapterId;
 
-            // Find the chapter being deleted.
+
             const chapter =
                 project.chapters.find(
                     chapter =>
                         chapter.id === chapterId
                 );
 
-            // Stop if the chapter could not be found.
+
             if (!chapter) {
                 return;
             }
 
 
-            /*
-             * Warn that every scene inside the chapter
-             * will be deleted with it.
-             */
-            const confirmed = window.confirm(
-                `Delete "${chapter.title}"?\n\n` +
-                "This will permanently delete this chapter " +
-                "and every scene inside it."
-            );
+            const confirmed =
+                window.confirm(
+                    `Delete "${chapter.title}"?\n\n` +
+                    "This will permanently delete this chapter " +
+                    "and every scene inside it."
+                );
 
 
-            // Do nothing if deletion was cancelled.
             if (!confirmed) {
                 return;
             }
 
 
-            // Delete the chapter.
             deleteChapter(
                 projectId,
                 chapterId
             );
 
 
-            // Reload the project view.
             openProject(projectId);
         });
     });
@@ -474,20 +511,18 @@ function openChapter(projectId, chapterId) {
     const project =
         getProjectById(projectId);
 
-    // Stop if the project could not be found.
     if (!project) {
         return;
     }
 
 
-    // Find the selected chapter.
+    // Find the requested chapter.
     const chapter =
         project.chapters.find(
             chapter =>
                 chapter.id === chapterId
         );
 
-    // Stop if the chapter could not be found.
     if (!chapter) {
         return;
     }
@@ -537,10 +572,8 @@ function openChapter(projectId, chapterId) {
 
     sceneForm.addEventListener("submit", (event) => {
 
-        // Stop the form from refreshing the page.
         event.preventDefault();
 
-        // Clean up the scene title.
         const title =
             sceneTitleInput.value.trim();
 
@@ -549,14 +582,15 @@ function openChapter(projectId, chapterId) {
             return;
         }
 
-        // Add the scene to the selected chapter.
+
         addSceneToChapter(
             projectId,
             chapterId,
             title
         );
 
-        // Reload the chapter to display the new scene.
+
+        // Reload the chapter.
         openChapter(
             projectId,
             chapterId
@@ -572,11 +606,9 @@ function openChapter(projectId, chapterId) {
 
         sceneCard.addEventListener("click", () => {
 
-            // Read the scene ID stored on the card.
             const sceneId =
                 sceneCard.dataset.sceneId;
 
-            // Open the selected scene.
             openScene(
                 projectId,
                 chapterId,
@@ -597,33 +629,31 @@ function openChapter(projectId, chapterId) {
             const sceneId =
                 renameButton.dataset.sceneId;
 
-            // Find the scene being renamed.
+
             const scene =
                 chapter.scenes.find(
                     scene =>
                         scene.id === sceneId
                 );
 
-            // Stop if the scene could not be found.
+
             if (!scene) {
                 return;
             }
 
 
-            // Ask for the replacement scene title.
-            const newTitle = window.prompt(
-                "Rename scene:",
-                scene.title
-            );
+            const newTitle =
+                window.prompt(
+                    "Rename scene:",
+                    scene.title
+                );
 
 
-            // Cancel was selected.
             if (newTitle === null) {
                 return;
             }
 
 
-            // Rename the scene.
             const renamedScene =
                 renameScene(
                     projectId,
@@ -633,7 +663,6 @@ function openChapter(projectId, chapterId) {
                 );
 
 
-            // Reload the chapter if the rename succeeded.
             if (renamedScene) {
 
                 openChapter(
@@ -656,34 +685,32 @@ function openChapter(projectId, chapterId) {
             const sceneId =
                 deleteButton.dataset.sceneId;
 
-            // Find the scene being deleted.
+
             const scene =
                 chapter.scenes.find(
                     scene =>
                         scene.id === sceneId
                 );
 
-            // Stop if the scene could not be found.
+
             if (!scene) {
                 return;
             }
 
 
-            // Warn that the scene content will be permanently removed.
-            const confirmed = window.confirm(
-                `Delete "${scene.title}"?\n\n` +
-                "This will permanently delete this scene " +
-                "and all of its written content."
-            );
+            const confirmed =
+                window.confirm(
+                    `Delete "${scene.title}"?\n\n` +
+                    "This will permanently delete this scene " +
+                    "and all of its written content."
+                );
 
 
-            // Do nothing if deletion was cancelled.
             if (!confirmed) {
                 return;
             }
 
 
-            // Delete the selected scene.
             deleteScene(
                 projectId,
                 chapterId,
@@ -691,7 +718,6 @@ function openChapter(projectId, chapterId) {
             );
 
 
-            // Reload the chapter view.
             openChapter(
                 projectId,
                 chapterId
@@ -712,20 +738,18 @@ function openScene(projectId, chapterId, sceneId) {
     const project =
         getProjectById(projectId);
 
-    // Stop if the project could not be found.
     if (!project) {
         return;
     }
 
 
-    // Find the chapter containing the selected scene.
+    // Find the selected chapter.
     const chapter =
         project.chapters.find(
             chapter =>
                 chapter.id === chapterId
         );
 
-    // Stop if the chapter could not be found.
     if (!chapter) {
         return;
     }
@@ -738,7 +762,6 @@ function openScene(projectId, chapterId, sceneId) {
                 scene.id === sceneId
         );
 
-    // Stop if the scene could not be found.
     if (!scene) {
         return;
     }
@@ -773,7 +796,7 @@ function openScene(projectId, chapterId, sceneId) {
         document.querySelector("#scene-word-count");
 
 
-    // Active scene record controls.
+    // Active scene actions.
     const renameSceneButton =
         document.querySelector(".rename-scene");
 
@@ -806,7 +829,7 @@ function openScene(projectId, chapterId, sceneId) {
         document.querySelector("#editor-align-justify");
 
 
-    // Manuscript formatting controls.
+    // Manuscript paragraph formatting controls.
     const firstLineIndentButton =
         document.querySelector(
             "#editor-first-line-indent"
@@ -852,10 +875,8 @@ function openScene(projectId, chapterId, sceneId) {
 
         extensions: [
 
-            // Standard rich-text formatting.
             StarterKit,
 
-            // Paragraph and heading alignment.
             TextAlign.configure({
                 types: [
                     "heading",
@@ -863,7 +884,6 @@ function openScene(projectId, chapterId, sceneId) {
                 ]
             }),
 
-            // StoryForge manuscript formatting.
             ParagraphFormatting
         ],
 
@@ -871,7 +891,7 @@ function openScene(projectId, chapterId, sceneId) {
         content:
             scene.content || "<p></p>",
 
-        // Temporary editor styling until the CSS pass.
+        // Temporary editor styling.
         editorProps: {
 
             attributes: {
@@ -889,7 +909,7 @@ function openScene(projectId, chapterId, sceneId) {
     // SAVE HELPERS
     // ========================================================
 
-    // Save the current TipTap document into the scene record.
+    // Save the editor's current HTML into the scene record.
     function saveCurrentScene() {
 
         const content =
@@ -904,7 +924,7 @@ function openScene(projectId, chapterId, sceneId) {
     }
 
 
-    // Update the autosave status shown beneath the editor.
+    // Update the autosave message.
     function setSaveStatus(message) {
 
         saveStatus.textContent =
@@ -916,10 +936,10 @@ function openScene(projectId, chapterId, sceneId) {
     // AUTOSAVE STATE
     // ========================================================
 
-    // Stores the currently scheduled autosave timer.
+    // Stores the current autosave timer.
     let autosaveTimeout = null;
 
-    // Tracks whether the editor contains unsaved changes.
+    // Tracks whether unsaved editor changes exist.
     let hasUnsavedChanges = false;
 
 
@@ -927,7 +947,9 @@ function openScene(projectId, chapterId, sceneId) {
     // AUTOSAVE
     // ========================================================
 
-    // Schedule a save one second after the author stops editing.
+    /*
+     * Schedule a save one second after the author stops editing.
+     */
     function scheduleAutosave() {
 
         hasUnsavedChanges = true;
@@ -937,7 +959,7 @@ function openScene(projectId, chapterId, sceneId) {
         );
 
 
-        // Restart the timer whenever another change occurs.
+        // Restart the countdown whenever another change occurs.
         if (autosaveTimeout) {
 
             clearTimeout(
@@ -952,11 +974,13 @@ function openScene(projectId, chapterId, sceneId) {
                 "Saving..."
             );
 
+
             saveCurrentScene();
 
             hasUnsavedChanges = false;
 
             autosaveTimeout = null;
+
 
             setSaveStatus(
                 "Saved"
@@ -967,13 +991,11 @@ function openScene(projectId, chapterId, sceneId) {
 
 
     /*
-     * Immediately complete pending autosave work.
-     *
-     * Used before navigation, renaming, or deleting.
+     * Immediately complete any pending autosave.
      */
     function flushAutosave() {
 
-        // Cancel the waiting timer.
+        // Cancel any waiting timer.
         if (autosaveTimeout) {
 
             clearTimeout(
@@ -991,9 +1013,11 @@ function openScene(projectId, chapterId, sceneId) {
                 "Saving..."
             );
 
+
             saveCurrentScene();
 
             hasUnsavedChanges = false;
+
 
             setSaveStatus(
                 "Saved"
@@ -1002,10 +1026,9 @@ function openScene(projectId, chapterId, sceneId) {
     }
 
 
-    // Force an immediate save through the manual Save button.
+    // Force an immediate save through the Save Scene button.
     function saveImmediately() {
 
-        // Cancel any pending autosave timer.
         if (autosaveTimeout) {
 
             clearTimeout(
@@ -1020,9 +1043,11 @@ function openScene(projectId, chapterId, sceneId) {
             "Saving..."
         );
 
+
         saveCurrentScene();
 
         hasUnsavedChanges = false;
+
 
         setSaveStatus(
             "Saved"
@@ -1031,10 +1056,52 @@ function openScene(projectId, chapterId, sceneId) {
 
 
     // ========================================================
+    // EDITOR CLEANUP
+    // ========================================================
+
+    /*
+     * Destroy the active TipTap editor.
+     *
+     * This also clears the global cleanup reference so
+     * StoryForge does not try to destroy the same editor twice.
+     */
+    function destroySceneEditor() {
+
+        activeSceneCleanup = null;
+
+        editor.destroy();
+    }
+
+
+    /*
+     * Save pending writing and then safely destroy TipTap.
+     *
+     * This function is registered globally while this scene
+     * editor is active, allowing the navbar logo to safely
+     * return to the dashboard.
+     */
+    function cleanupSceneEditor() {
+
+        flushAutosave();
+
+        destroySceneEditor();
+    }
+
+
+    /*
+     * Register this editor's cleanup function globally.
+     *
+     * The StoryForge navbar uses this when Home is clicked.
+     */
+    activeSceneCleanup =
+        cleanupSceneEditor;
+
+
+    // ========================================================
     // WORD COUNT
     // ========================================================
 
-    // Format a live word count for display.
+    // Format a live word count.
     function formatLiveWordCount(count) {
 
         const label =
@@ -1055,6 +1122,7 @@ function openScene(projectId, chapterId, sceneId) {
         const wordCount =
             countSceneWords(content);
 
+
         sceneWordCount.textContent =
             formatLiveWordCount(
                 wordCount
@@ -1066,13 +1134,14 @@ function openScene(projectId, chapterId, sceneId) {
     // TOOLBAR HELPERS
     // ========================================================
 
-    // Toggle Bootstrap's active state for formatting buttons.
+    // Add or remove the active formatting state.
     function setButtonActive(button, isActive) {
 
         button.classList.toggle(
             "active",
             isActive
         );
+
 
         button.setAttribute(
             "aria-pressed",
@@ -1090,7 +1159,7 @@ function openScene(projectId, chapterId, sceneId) {
     }
 
 
-    // Read the current whole-paragraph indent as a number.
+    // Read the whole-paragraph indent as a number.
     function getParagraphIndentAmount() {
 
         const attributes =
@@ -1099,18 +1168,20 @@ function openScene(projectId, chapterId, sceneId) {
         const marginLeft =
             attributes.marginLeft;
 
-        // No stored indent means zero.
+
         if (!marginLeft) {
             return 0;
         }
 
+
         const amount =
             parseFloat(marginLeft);
 
-        // Protect against malformed stored values.
+
         if (Number.isNaN(amount)) {
             return 0;
         }
+
 
         return amount;
     }
@@ -1120,7 +1191,7 @@ function openScene(projectId, chapterId, sceneId) {
     // TOOLBAR STATE
     // ========================================================
 
-    // Keep toolbar controls synchronised with the cursor position.
+    // Keep toolbar controls synchronised with the cursor.
     function updateToolbarState() {
 
         // Basic formatting.
@@ -1140,7 +1211,7 @@ function openScene(projectId, chapterId, sceneId) {
         );
 
 
-        // Text alignment.
+        // Alignment.
         setButtonActive(
             alignLeftButton,
             editor.isActive({
@@ -1170,7 +1241,7 @@ function openScene(projectId, chapterId, sceneId) {
         );
 
 
-        // Manuscript paragraph formatting.
+        // Paragraph formatting.
         const paragraphAttributes =
             getParagraphAttributes();
 
@@ -1191,7 +1262,7 @@ function openScene(projectId, chapterId, sceneId) {
             getParagraphIndentAmount() <= 0;
 
 
-        // Undo / redo availability.
+        // Undo availability.
         undoButton.disabled = !editor
             .can()
             .chain()
@@ -1200,6 +1271,7 @@ function openScene(projectId, chapterId, sceneId) {
             .run();
 
 
+        // Redo availability.
         redoButton.disabled = !editor
             .can()
             .chain()
@@ -1213,14 +1285,12 @@ function openScene(projectId, chapterId, sceneId) {
     // TIPTAP EVENTS
     // ========================================================
 
-    // Refresh toolbar state when the selection changes.
     editor.on(
         "selectionUpdate",
         updateToolbarState
     );
 
 
-    // Refresh toolbar state when an editor transaction occurs.
     editor.on(
         "transaction",
         updateToolbarState
@@ -1229,9 +1299,8 @@ function openScene(projectId, chapterId, sceneId) {
 
     /*
      * Whenever scene content changes:
-     *
-     * - update the live word count
-     * - start or restart autosave
+     * - update word count
+     * - restart autosave
      */
     editor.on("update", () => {
 
@@ -1241,9 +1310,11 @@ function openScene(projectId, chapterId, sceneId) {
     });
 
 
-    // Set initial editor state.
+    // Initialise editor state.
     updateToolbarState();
+
     updateLiveWordCount();
+
     setSaveStatus("Saved");
 
 
@@ -1517,20 +1588,16 @@ function openScene(projectId, chapterId, sceneId) {
         "click",
         () => {
 
-            // Save immediately.
             saveImmediately();
 
 
-            // Give additional visual confirmation.
             saveButton.textContent =
                 "Saved ✓";
 
 
             setTimeout(() => {
 
-                if (
-                    saveButton.isConnected
-                ) {
+                if (saveButton.isConnected) {
 
                     saveButton.textContent =
                         "Save Scene";
@@ -1549,7 +1616,6 @@ function openScene(projectId, chapterId, sceneId) {
         "click",
         () => {
 
-            // Ask for the replacement title.
             const newTitle =
                 window.prompt(
                     "Rename scene:",
@@ -1557,20 +1623,15 @@ function openScene(projectId, chapterId, sceneId) {
                 );
 
 
-            // Cancel was selected.
             if (newTitle === null) {
                 return;
             }
 
 
-            /*
-             * Save any pending writing before modifying
-             * the scene record.
-             */
+            // Save any pending writing first.
             flushAutosave();
 
 
-            // Rename the scene.
             const renamedScene =
                 renameScene(
                     projectId,
@@ -1580,17 +1641,16 @@ function openScene(projectId, chapterId, sceneId) {
                 );
 
 
-            // Stop if the title was invalid.
             if (!renamedScene) {
                 return;
             }
 
 
-            // Clean up the current editor instance.
-            editor.destroy();
+            // Destroy the current editor without another save.
+            destroySceneEditor();
 
 
-            // Re-open the same scene with its new title.
+            // Re-open the renamed scene.
             openScene(
                 projectId,
                 chapterId,
@@ -1608,7 +1668,6 @@ function openScene(projectId, chapterId, sceneId) {
         "click",
         () => {
 
-            // Require explicit confirmation.
             const confirmed =
                 window.confirm(
                     `Delete "${scene.title}"?\n\n` +
@@ -1617,24 +1676,21 @@ function openScene(projectId, chapterId, sceneId) {
                 );
 
 
-            // Leave the scene untouched if cancelled.
             if (!confirmed) {
                 return;
             }
 
 
             /*
-             * Complete pending autosave first so no timer
-             * remains active after the editor is destroyed.
+             * Finish any pending autosave before destroying
+             * the editor and removing the scene.
              */
             flushAutosave();
 
 
-            // Destroy TipTap before removing the scene.
-            editor.destroy();
+            destroySceneEditor();
 
 
-            // Permanently delete the scene.
             deleteScene(
                 projectId,
                 chapterId,
@@ -1642,7 +1698,6 @@ function openScene(projectId, chapterId, sceneId) {
             );
 
 
-            // Return to the parent chapter.
             openChapter(
                 projectId,
                 chapterId
@@ -1668,11 +1723,9 @@ function openScene(projectId, chapterId, sceneId) {
                             .chapterId;
 
 
-                    // Save pending writing before leaving.
-                    flushAutosave();
+                    // Save and clean up the current editor.
+                    cleanupSceneEditor();
 
-                    // Clean up TipTap.
-                    editor.destroy();
 
                     // Open the selected chapter.
                     openChapter(
@@ -1707,10 +1760,7 @@ function openScene(projectId, chapterId, sceneId) {
                             .sceneId;
 
 
-                    /*
-                     * Do nothing if the current scene
-                     * was clicked again.
-                     */
+                    // Do nothing if the current scene was clicked.
                     if (
                         targetChapterId ===
                             chapterId &&
@@ -1721,11 +1771,9 @@ function openScene(projectId, chapterId, sceneId) {
                     }
 
 
-                    // Save pending writing before switching.
-                    flushAutosave();
+                    // Save and clean up the current editor.
+                    cleanupSceneEditor();
 
-                    // Destroy the current editor.
-                    editor.destroy();
 
                     // Open the selected scene.
                     openScene(
@@ -1747,11 +1795,9 @@ function openScene(projectId, chapterId, sceneId) {
         "click",
         () => {
 
-            // Complete pending autosave before leaving.
-            flushAutosave();
+            // Save pending writing and destroy TipTap.
+            cleanupSceneEditor();
 
-            // Clean up TipTap.
-            editor.destroy();
 
             // Return to the current chapter.
             openChapter(
@@ -1767,5 +1813,5 @@ function openScene(projectId, chapterId, sceneId) {
 // APPLICATION START
 // ============================================================
 
-// Show the project dashboard when StoryForge first loads.
+// Show the StoryForge dashboard when the application first loads.
 showDashboard();

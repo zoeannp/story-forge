@@ -3,12 +3,6 @@
    Main application styling
    ============================================================ */
 
-   /* Heading Logo */
-   .header-logo {
-    width: 50%
-   }
-
-
 /* ============================================================
    STORYFORGE COLOUR PALETTE
    ============================================================ */
@@ -75,6 +69,111 @@
         rgba(18, 56, 59, 0.16);
 }
 
+/* ============================================================
+   STORYFORGE NAVIGATION
+   ============================================================ */
+
+/*
+ * Shared navigation bar shown across the application.
+ */
+.storyforge-nav {
+
+    width: 100%;
+
+    background-color: #12383b;
+
+    border-bottom: 1px solid var(--sf-border);
+
+    box-shadow:
+        0 0.2rem 0.8rem
+        rgba(18, 56, 59, 0.07);
+}
+
+
+/*
+ * The StoryForge logo acts as the Home / Dashboard button.
+ *
+ * Remove normal button styling so the logo itself remains
+ * the focus of the navigation bar.
+ */
+.storyforge-home {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    padding: 0.6rem 0;
+
+    background: transparent;
+
+    border: 0;
+
+    cursor: pointer;
+}
+
+
+/*
+ * Constrain the large original logo image to navbar size.
+ *
+ * Height controls the visual size while width remains automatic
+ * so the image keeps its original proportions.
+ */
+.storyforge-nav-logo {
+
+    display: block;
+
+    width: auto;
+
+    height: 60px;
+
+    max-width: 260px;
+
+    object-fit: contain;
+
+    transition:
+        transform 0.18s ease,
+        opacity 0.18s ease;
+}
+
+
+/*
+ * Small hover response so the logo feels clickable.
+ */
+.storyforge-home:hover .storyforge-nav-logo {
+
+    transform: scale(1.02);
+
+    opacity: 0.88;
+}
+
+
+/*
+ * Clear keyboard focus indicator.
+ */
+.storyforge-home:focus-visible {
+
+    outline:
+        3px solid
+        rgba(39, 217, 211, 0.55);
+
+    outline-offset: 4px;
+
+    border-radius: var(--sf-radius-small);
+}
+
+
+/*
+ * Reduce the navbar logo further on narrow screens.
+ */
+@media (max-width: 575.98px) {
+
+    .storyforge-nav-logo {
+
+        height: 48px;
+
+        max-width: 210px;
+    }
+}
 
 /* ============================================================
    GLOBAL PAGE STYLES

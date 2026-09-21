@@ -1,127 +1,19 @@
-# StoryForge MVP
+# StoryForge MVP Checklist
 
-## Development Rule
+StoryForge is a single-user writing and manuscript organisation application.
 
-Do not move to the next stage until the current stage is working
-and has been tested.
-
----
-
-## Stage 1 - Vanilla JavaScript Setup
-
-- [x] Remove React from active project
-- [x] Remove React Router
-- [x] Remove React Vite plugin
-- [x] Create modular JavaScript structure
-- [x] Confirm Vite still runs
-- [x] Confirm StoryForge renders successfully
-
-### Definition of Done
-
-- [x] Application runs using HTML, CSS and vanilla JavaScript
-- [x] No React dependencies are required
-- [x] No console errors
+The MVP focuses on allowing an author to create projects, organise them into
+chapters and scenes, write and format manuscript content, and safely persist
+that work locally.
 
 ---
 
-## Stage 2 - Project Data Model
+## MVP Scope
 
-- [x] Define basic project object structure
-- [x] Create localStorage service
-- [x] Save test project
-- [x] Retrieve test project
-- [x] Confirm data survives browser refresh
+### Core Structure
 
-### Definition of Done
-
-- [x] Project can be saved to localStorage
-- [x] Saved project survives browser refresh
-- [x] Project can be loaded again
-
----
-
-## Stage 3 - Project Management
-
-- [ ] Create project
-- [ ] Display project list
-- [ ] Open project
-- [ ] Rename/edit project
-- [ ] Delete project
-
-### Definition of Done
-
-- [ ] User can create and reopen a project
-- [ ] Changes persist after refresh
-
----
-
-## Stage 4 - Chapters / Scenes
-
-- [ ] Add chapter
-- [ ] Add scene
-- [ ] Rename chapter/scene
-- [ ] Select chapter/scene
-- [ ] Delete chapter/scene
-- [ ] Persist structure to localStorage
-
-### Definition of Done
-
-- [ ] Project can contain chapters/scenes
-- [ ] Structure persists after refresh
-
----
-
-## Stage 5 - Writing Experience
-
-- [ ] Create manuscript editor
-- [ ] Write/edit manuscript text
-- [ ] Autosave writing
-- [ ] Display save status
-- [ ] Restore writing when project is reopened
-- [ ] Create clean writing-focused UI
-
-### Definition of Done
-
-- [ ] User can write comfortably
-- [ ] Writing saves automatically
-- [ ] No work is lost after refresh/reopen
-
----
-
-## Stage 6 - Usability / Polish
-
-- [ ] Empty states
-- [ ] Confirmation before destructive actions
-- [ ] Responsive layout
-- [ ] Navigation/sidebar
-- [ ] Basic accessibility
-- [ ] Error handling
-
----
-
-## Stage 7 - MVP Test
-
-- [ ] Create new project
-- [ ] Add chapter
-- [ ] Add scene
-- [ ] Write manuscript content
-- [ ] Close/reload application
-- [ ] Reopen project
-- [ ] Confirm all content remains
-- [ ] Edit existing content
-- [ ] Delete content safely
-
-# Future StoryForge
-
-- Authentication
-- Firebase/cloud persistence
-- Beta reader accounts
-- Secure sharing
-- Reader comments
-- Inline feedback
-- Co-author collaboration
-- Story Bible
-- Character/location databases
-- Export
-- Version history
-- AI integration
+```text
+Project
+└── Chapter
+    └── Scene
+        └── Content
