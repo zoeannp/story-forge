@@ -1,4 +1,18 @@
-// Builds the HTML views used by the StoryForge application.
+
+/*
+ * StoryForge User Interface
+ *
+ * Builds the HTML views used throughout the application.
+ *
+ * Views:
+ * - Project creation
+ * - Project dashboard
+ * - Project details and manuscript actions
+ * - Chapter details
+ * - Scene editor
+ *
+ * Manuscript viewing and DOCX export are connected in app.js.
+ */
 
 import {
     countSceneWords,
@@ -6,29 +20,40 @@ import {
     countProjectWords
 } from "./wordCount.js";
 
-// Import the StoryForge heading logo through Vite.
 import headingLogo from "../images/heading-logo.png";
 
 
 // ============================================================
-// WORD COUNT DISPLAY HELPER
+// DISPLAY HELPERS
 // ============================================================
 
 /*
- * Format a word count for display in the interface.
+ * Format word counts for display.
  *
- * Examples:
- * 1      -> "1 word"
- * 2500   -> "2,500 words"
+ * 1    -> 1 word
+ * 2500 -> 2,500 words
  */
 function formatWordCount(count) {
-
-    // Use the singular form when the count is exactly one.
-    const label = count === 1
-        ? "word"
-        : "words";
+    const label = count === 1 ? "word" : "words";
 
     return `${count.toLocaleString()} ${label}`;
+}
+
+/*
+ * Escape user-provided text before inserting it into HTML.
+ * This protects titles and attributes from HTML injection.
+ */
+function escapeHTML(value) {
+    return String(value ?? "").replace(
+        /[&<>"']/g,
+        character => ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;"
+        })[character]
+    );
 }
 
 
@@ -37,42 +62,101 @@ function formatWordCount(count) {
 // ============================================================
 
 /*
- * Build the shared StoryForge navigation bar.
+ * Shared navigation bar.
  *
- * This appears at the top of every main application view.
- * Clicking the logo is handled by app.js and returns
- * the user to the main dashboard.
+ * app.js handles clicks on .storyforge-home.
  */
 function renderNavbar() {
-
     return `
         <nav class="storyforge-nav">
-
             <div class="container">
 
-                <!--
-                    StoryForge logo acts as the application Home button.
-
-                    app.js listens for clicks on .storyforge-home.
-                -->
                 <button
                     class="storyforge-home"
                     type="button"
                     aria-label="Return to StoryForge dashboard"
                     title="StoryForge Dashboard"
                 >
-
                     <img
                         class="storyforge-nav-logo"
                         src="${headingLogo}"
                         alt="StoryForge"
                     >
-
                 </button>
 
             </div>
-
         </nav>
+    `;
+}
+
+
+// ============================================================
+// REUSABLE ACTION MENU
+// ============================================================
+
+/*
+ * Build a Rename/Delete menu.
+ *
+ * The original action classes and data attributes are
+ * preserved so existing app.js listeners continue working.
+ */
+function renderActionMenu(type, id) {
+    const safeId = escapeHTML(id);
+    const safeType = escapeHTML(type);
+
+    return `
+        <details class="position-relative">
+
+            <summary
+                class="btn btn-sm btn-outline-secondary"
+                title="${safeType} actions"
+                aria-label="${safeType} actions"
+            >
+                ⋮
+            </summary>
+
+            <div
+                class="
+                    position-absolute
+                    end-0
+                    mt-2
+                    p-2
+                    bg-body
+                    border
+                    rounded
+                    shadow-sm
+                "
+                style="min-width: 10rem; z-index: 10;"
+            >
+
+                <!-- Rename the selected item. -->
+                <button
+                    class="
+                        btn btn-sm btn-outline-secondary
+                        w-100 text-start mb-2
+                        rename-${safeType}
+                    "
+                    type="button"
+                    data-${safeType}-id="${safeId}"
+                >
+                    Rename
+                </button>
+
+                <!-- Delete the selected item. -->
+                <button
+                    class="
+                        btn btn-sm btn-outline-danger
+                        w-100 text-start
+                        delete-${safeType}
+                    "
+                    type="button"
+                    data-${safeType}-id="${safeId}"
+                >
+                    Delete
+                </button>
+
+            </div>
+        </details>
     `;
 }
 
@@ -81,15 +165,15 @@ function renderNavbar() {
 // PROJECT CREATION VIEW
 // ============================================================
 
-// Render the form used to create a new project.
+/*
+ * Render the form used to create a new project.
+ */
 export function renderCreateProjectForm(container) {
-
     container.innerHTML = `
         ${renderNavbar()}
 
         <div class="container mt-4">
 
-            <!-- Form used to create a new writing project. -->
             <form id="create-project-form">
 
                 <div class="mb-3">
@@ -120,7 +204,7 @@ export function renderCreateProjectForm(container) {
 
             </form>
 
-            <!-- Project cards are rendered inside this container. -->
+            <!-- Project cards are rendered here. -->
             <div id="project-list"></div>
 
         </div>
@@ -132,12 +216,17 @@ export function renderCreateProjectForm(container) {
 // PROJECT LIST VIEW
 // ============================================================
 
-// Render project cards, or an empty state when no projects exist.
+/*
+ * Render all projects on the dashboard.
+ *
+ * Each project includes:
+ * - Title
+ * - Chapter count
+ * - Word count
+ * - Rename/Delete menu
+ */
 export function renderProjectList(container, projects) {
-
-    // Show a message instead of project cards if storage is empty.
     if (projects.length === 0) {
-
         container.innerHTML = `
             <p class="text-muted mt-4">
                 No projects yet. Create your first project above.
@@ -147,7 +236,6 @@ export function renderProjectList(container, projects) {
         return;
     }
 
-
     container.innerHTML = `
         <div class="mt-5">
 
@@ -156,8 +244,6 @@ export function renderProjectList(container, projects) {
             <div class="row g-3 mt-2">
 
                 ${projects.map(project => {
-
-                    // Calculate the total words across the entire project.
                     const wordCount = countProjectWords(project);
 
                     return `
@@ -176,29 +262,19 @@ export function renderProjectList(container, projects) {
                                         "
                                     >
 
-                                        <!--
-                                            The main project button opens the project.
-
-                                            Keeping the action menu outside this button
-                                            prevents Rename/Delete clicks from opening
-                                            the project accidentally.
-                                        -->
+                                        <!-- Open the project. -->
                                         <button
                                             class="
-                                                btn
-                                                p-0
-                                                border-0
-                                                bg-transparent
-                                                text-start
-                                                flex-grow-1
-                                                project-card
+                                                btn p-0 border-0
+                                                bg-transparent text-start
+                                                flex-grow-1 project-card
                                             "
-                                            data-project-id="${project.id}"
+                                            data-project-id="${escapeHTML(project.id)}"
                                             type="button"
                                         >
 
                                             <h3 class="card-title h5">
-                                                ${project.title}
+                                                ${escapeHTML(project.title)}
                                             </h3>
 
                                             <p class="card-text text-muted mb-1">
@@ -211,76 +287,10 @@ export function renderProjectList(container, projects) {
 
                                         </button>
 
-
-                                        <!-- Project actions menu. -->
-                                        <details class="position-relative">
-
-                                            <summary
-                                                class="
-                                                    btn
-                                                    btn-sm
-                                                    btn-outline-secondary
-                                                "
-                                                title="Project actions"
-                                                aria-label="Project actions"
-                                            >
-                                                ⋮
-                                            </summary>
-
-                                            <div
-                                                class="
-                                                    position-absolute
-                                                    end-0
-                                                    mt-2
-                                                    p-2
-                                                    bg-body
-                                                    border
-                                                    rounded
-                                                    shadow-sm
-                                                "
-                                                style="
-                                                    min-width: 10rem;
-                                                    z-index: 10;
-                                                "
-                                            >
-
-                                                <!-- Rename this project. -->
-                                                <button
-                                                    class="
-                                                        btn
-                                                        btn-sm
-                                                        btn-outline-secondary
-                                                        w-100
-                                                        text-start
-                                                        mb-2
-                                                        rename-project
-                                                    "
-                                                    type="button"
-                                                    data-project-id="${project.id}"
-                                                >
-                                                    Rename
-                                                </button>
-
-
-                                                <!-- Delete this project. -->
-                                                <button
-                                                    class="
-                                                        btn
-                                                        btn-sm
-                                                        btn-outline-danger
-                                                        w-100
-                                                        text-start
-                                                        delete-project
-                                                    "
-                                                    type="button"
-                                                    data-project-id="${project.id}"
-                                                >
-                                                    Delete
-                                                </button>
-
-                                            </div>
-
-                                        </details>
+                                        ${renderActionMenu(
+                                            "project",
+                                            project.id
+                                        )}
 
                                     </div>
 
@@ -303,10 +313,19 @@ export function renderProjectList(container, projects) {
 // PROJECT VIEW
 // ============================================================
 
-// Render the selected project, its chapters, and the chapter creation form.
+/*
+ * Render the selected project.
+ *
+ * Includes:
+ * - Project information
+ * - Full manuscript viewing button
+ * - DOCX manuscript download button
+ * - Chapter creation form
+ * - Existing chapter cards and actions
+ *
+ * app.js connects the manuscript buttons to their functions.
+ */
 export function renderProjectView(container, project) {
-
-    // Calculate the total words across all chapters in this project.
     const projectWordCount = countProjectWords(project);
 
     container.innerHTML = `
@@ -314,7 +333,7 @@ export function renderProjectView(container, project) {
 
         <div class="container mt-4">
 
-            <!-- Return to the main project dashboard. -->
+            <!-- Return to the project dashboard. -->
             <button
                 id="back-to-projects"
                 class="btn btn-outline-secondary mb-4"
@@ -324,8 +343,9 @@ export function renderProjectView(container, project) {
             </button>
 
 
-            <!-- Display the selected project's information. -->
-            <h1>${project.title}</h1>
+            <!-- PROJECT INFORMATION -->
+
+            <h1>${escapeHTML(project.title)}</h1>
 
             <p class="text-muted">
                 ${project.chapters.length} chapters
@@ -333,10 +353,50 @@ export function renderProjectView(container, project) {
                 ${formatWordCount(projectWordCount)}
             </p>
 
+
+            <!-- ============================================== -->
+            <!-- MANUSCRIPT ACTIONS -->
+            <!-- ============================================== -->
+
+            <!--
+                These controls use the same project data.
+
+                View Full Manuscript:
+                Displays all chapters and scenes together.
+
+                Download Manuscript:
+                Exports the complete manuscript as DOCX.
+
+                Neither action modifies localStorage.
+            -->
+
+            <div class="d-flex flex-wrap gap-2 mb-4">
+
+                <button
+                    id="view-manuscript"
+                    class="btn btn-primary"
+                    type="button"
+                >
+                    View Full Manuscript
+                </button>
+
+                <button
+                    id="download-manuscript"
+                    class="btn btn-outline-primary"
+                    type="button"
+                >
+                    Download Manuscript (.docx)
+                </button>
+
+            </div>
+
             <hr>
 
 
-            <!-- Form used to create a new chapter inside this project. -->
+            <!-- ============================================== -->
+            <!-- CHAPTER CREATION -->
+            <!-- ============================================== -->
+
             <form
                 id="create-chapter-form"
                 class="mt-4"
@@ -371,7 +431,10 @@ export function renderProjectView(container, project) {
             </form>
 
 
-            <!-- Chapter list section. -->
+            <!-- ============================================== -->
+            <!-- CHAPTER LIST -->
+            <!-- ============================================== -->
+
             <div class="mt-5">
 
                 <h2>Chapters</h2>
@@ -380,7 +443,6 @@ export function renderProjectView(container, project) {
                     project.chapters.length === 0
 
                         ? `
-                            <!-- Show an empty state if the project has no chapters. -->
                             <p class="text-muted">
                                 No chapters yet. Add your first chapter above.
                             </p>
@@ -390,8 +452,6 @@ export function renderProjectView(container, project) {
                             <div class="row g-3 mt-2">
 
                                 ${project.chapters.map(chapter => {
-
-                                    // Calculate the total words inside this chapter.
                                     const chapterWordCount =
                                         countChapterWords(chapter);
 
@@ -411,42 +471,28 @@ export function renderProjectView(container, project) {
                                                         "
                                                     >
 
-                                                        <!-- Open the selected chapter. -->
+                                                        <!-- Open the chapter. -->
                                                         <button
                                                             class="
-                                                                btn
-                                                                p-0
-                                                                border-0
+                                                                btn p-0 border-0
                                                                 bg-transparent
                                                                 text-start
                                                                 flex-grow-1
                                                                 chapter-card
                                                             "
-                                                            data-chapter-id="${chapter.id}"
+                                                            data-chapter-id="${escapeHTML(chapter.id)}"
                                                             type="button"
                                                         >
 
                                                             <h3 class="card-title h5">
-                                                                ${chapter.title}
+                                                                ${escapeHTML(chapter.title)}
                                                             </h3>
 
-                                                            <p
-                                                                class="
-                                                                    card-text
-                                                                    text-muted
-                                                                    mb-1
-                                                                "
-                                                            >
+                                                            <p class="card-text text-muted mb-1">
                                                                 ${chapter.scenes.length} scenes
                                                             </p>
 
-                                                            <p
-                                                                class="
-                                                                    card-text
-                                                                    text-muted
-                                                                    mb-0
-                                                                "
-                                                            >
+                                                            <p class="card-text text-muted mb-0">
                                                                 ${formatWordCount(
                                                                     chapterWordCount
                                                                 )}
@@ -454,76 +500,10 @@ export function renderProjectView(container, project) {
 
                                                         </button>
 
-
-                                                        <!-- Chapter actions menu. -->
-                                                        <details class="position-relative">
-
-                                                            <summary
-                                                                class="
-                                                                    btn
-                                                                    btn-sm
-                                                                    btn-outline-secondary
-                                                                "
-                                                                title="Chapter actions"
-                                                                aria-label="Chapter actions"
-                                                            >
-                                                                ⋮
-                                                            </summary>
-
-                                                            <div
-                                                                class="
-                                                                    position-absolute
-                                                                    end-0
-                                                                    mt-2
-                                                                    p-2
-                                                                    bg-body
-                                                                    border
-                                                                    rounded
-                                                                    shadow-sm
-                                                                "
-                                                                style="
-                                                                    min-width: 10rem;
-                                                                    z-index: 10;
-                                                                "
-                                                            >
-
-                                                                <!-- Rename this chapter. -->
-                                                                <button
-                                                                    class="
-                                                                        btn
-                                                                        btn-sm
-                                                                        btn-outline-secondary
-                                                                        w-100
-                                                                        text-start
-                                                                        mb-2
-                                                                        rename-chapter
-                                                                    "
-                                                                    type="button"
-                                                                    data-chapter-id="${chapter.id}"
-                                                                >
-                                                                    Rename
-                                                                </button>
-
-
-                                                                <!-- Delete this chapter. -->
-                                                                <button
-                                                                    class="
-                                                                        btn
-                                                                        btn-sm
-                                                                        btn-outline-danger
-                                                                        w-100
-                                                                        text-start
-                                                                        delete-chapter
-                                                                    "
-                                                                    type="button"
-                                                                    data-chapter-id="${chapter.id}"
-                                                                >
-                                                                    Delete
-                                                                </button>
-
-                                                            </div>
-
-                                                        </details>
+                                                        ${renderActionMenu(
+                                                            "chapter",
+                                                            chapter.id
+                                                        )}
 
                                                     </div>
 
@@ -550,10 +530,16 @@ export function renderProjectView(container, project) {
 // CHAPTER VIEW
 // ============================================================
 
-// Render the selected chapter, its scene creation form, and its scenes.
+/*
+ * Render the selected chapter and its scenes.
+ *
+ * Includes:
+ * - Chapter information
+ * - Scene creation form
+ * - Scene cards
+ * - Rename/Delete actions
+ */
 export function renderChapterView(container, project, chapter) {
-
-    // Calculate the total words across every scene in this chapter.
     const chapterWordCount = countChapterWords(chapter);
 
     container.innerHTML = `
@@ -561,18 +547,19 @@ export function renderChapterView(container, project, chapter) {
 
         <div class="container mt-4">
 
-            <!-- Return to the project that contains this chapter. -->
+            <!-- Return to the containing project. -->
             <button
                 id="back-to-project"
                 class="btn btn-outline-secondary mb-4"
                 type="button"
             >
-                ← Back to ${project.title}
+                ← Back to ${escapeHTML(project.title)}
             </button>
 
 
-            <!-- Display the selected chapter's information. -->
-            <h1>${chapter.title}</h1>
+            <!-- CHAPTER INFORMATION -->
+
+            <h1>${escapeHTML(chapter.title)}</h1>
 
             <p class="text-muted">
                 ${chapter.scenes.length} scenes
@@ -583,7 +570,8 @@ export function renderChapterView(container, project, chapter) {
             <hr>
 
 
-            <!-- Form used to create a new scene inside this chapter. -->
+            <!-- SCENE CREATION -->
+
             <form
                 id="create-scene-form"
                 class="mt-4"
@@ -618,7 +606,8 @@ export function renderChapterView(container, project, chapter) {
             </form>
 
 
-            <!-- Scene list section. -->
+            <!-- SCENE LIST -->
+
             <div class="mt-5">
 
                 <h2>Scenes</h2>
@@ -627,7 +616,6 @@ export function renderChapterView(container, project, chapter) {
                     chapter.scenes.length === 0
 
                         ? `
-                            <!-- Show an empty state if the chapter has no scenes. -->
                             <p class="text-muted">
                                 No scenes yet. Add your first scene above.
                             </p>
@@ -637,8 +625,6 @@ export function renderChapterView(container, project, chapter) {
                             <div class="row g-3 mt-2">
 
                                 ${chapter.scenes.map(scene => {
-
-                                    // Calculate the word count for this scene.
                                     const sceneWordCount =
                                         countSceneWords(scene.content);
 
@@ -658,32 +644,24 @@ export function renderChapterView(container, project, chapter) {
                                                         "
                                                     >
 
-                                                        <!-- Open this scene in the editor. -->
+                                                        <!-- Open the scene editor. -->
                                                         <button
                                                             class="
-                                                                btn
-                                                                p-0
-                                                                border-0
+                                                                btn p-0 border-0
                                                                 bg-transparent
                                                                 text-start
                                                                 flex-grow-1
                                                                 scene-card
                                                             "
-                                                            data-scene-id="${scene.id}"
+                                                            data-scene-id="${escapeHTML(scene.id)}"
                                                             type="button"
                                                         >
 
                                                             <h3 class="card-title h5">
-                                                                ${scene.title}
+                                                                ${escapeHTML(scene.title)}
                                                             </h3>
 
-                                                            <p
-                                                                class="
-                                                                    card-text
-                                                                    text-muted
-                                                                    mb-0
-                                                                "
-                                                            >
+                                                            <p class="card-text text-muted mb-0">
                                                                 ${formatWordCount(
                                                                     sceneWordCount
                                                                 )}
@@ -691,76 +669,10 @@ export function renderChapterView(container, project, chapter) {
 
                                                         </button>
 
-
-                                                        <!-- Scene actions menu. -->
-                                                        <details class="position-relative">
-
-                                                            <summary
-                                                                class="
-                                                                    btn
-                                                                    btn-sm
-                                                                    btn-outline-secondary
-                                                                "
-                                                                title="Scene actions"
-                                                                aria-label="Scene actions"
-                                                            >
-                                                                ⋮
-                                                            </summary>
-
-                                                            <div
-                                                                class="
-                                                                    position-absolute
-                                                                    end-0
-                                                                    mt-2
-                                                                    p-2
-                                                                    bg-body
-                                                                    border
-                                                                    rounded
-                                                                    shadow-sm
-                                                                "
-                                                                style="
-                                                                    min-width: 10rem;
-                                                                    z-index: 10;
-                                                                "
-                                                            >
-
-                                                                <!-- Rename this scene. -->
-                                                                <button
-                                                                    class="
-                                                                        btn
-                                                                        btn-sm
-                                                                        btn-outline-secondary
-                                                                        w-100
-                                                                        text-start
-                                                                        mb-2
-                                                                        rename-scene
-                                                                    "
-                                                                    type="button"
-                                                                    data-scene-id="${scene.id}"
-                                                                >
-                                                                    Rename
-                                                                </button>
-
-
-                                                                <!-- Delete this scene. -->
-                                                                <button
-                                                                    class="
-                                                                        btn
-                                                                        btn-sm
-                                                                        btn-outline-danger
-                                                                        w-100
-                                                                        text-start
-                                                                        delete-scene
-                                                                    "
-                                                                    type="button"
-                                                                    data-scene-id="${scene.id}"
-                                                                >
-                                                                    Delete
-                                                                </button>
-
-                                                            </div>
-
-                                                        </details>
+                                                        ${renderActionMenu(
+                                                            "scene",
+                                                            scene.id
+                                                        )}
 
                                                     </div>
 
@@ -784,13 +696,389 @@ export function renderChapterView(container, project, chapter) {
 
 
 // ============================================================
+// SCENE EDITOR SIDEBAR
+// ============================================================
+
+/*
+ * Render the desktop chapter/scene navigation.
+ *
+ * Existing classes and IDs are retained so app.js can
+ * handle navigation between scenes and chapters.
+ */
+function renderEditorSidebar(project, chapter, scene) {
+    return `
+        <aside
+            class="col-lg-3 d-none d-lg-block"
+            id="editor-sidebar"
+        >
+
+            <div class="card">
+
+                <div class="card-body">
+
+                    <h2 class="h5 mb-1">
+                        ${escapeHTML(project.title)}
+                    </h2>
+
+                    <p class="text-muted small mb-4">
+                        ${formatWordCount(countProjectWords(project))}
+                    </p>
+
+                    <div id="editor-sidebar-navigation">
+
+                        ${project.chapters.map(sidebarChapter => {
+                            const chapterWordCount =
+                                countChapterWords(sidebarChapter);
+
+                            const isCurrentChapter =
+                                sidebarChapter.id === chapter.id;
+
+                            return `
+                                <div class="mb-4">
+
+                                    <!-- Chapter navigation. -->
+                                    <button
+                                        class="
+                                            btn btn-sm w-100 text-start
+                                            editor-sidebar-chapter
+                                            ${isCurrentChapter ? "fw-bold" : ""}
+                                        "
+                                        type="button"
+                                        data-chapter-id="${escapeHTML(sidebarChapter.id)}"
+                                    >
+                                        ${escapeHTML(sidebarChapter.title)}
+                                    </button>
+
+                                    <div class="text-muted small px-2 mb-2">
+                                        ${formatWordCount(chapterWordCount)}
+                                    </div>
+
+                                    ${
+                                        sidebarChapter.scenes.length === 0
+
+                                            ? `
+                                                <p
+                                                    class="
+                                                        text-muted small
+                                                        fst-italic px-2 mb-0
+                                                    "
+                                                >
+                                                    No scenes
+                                                </p>
+                                            `
+
+                                            : `
+                                                <div
+                                                    class="
+                                                        list-group
+                                                        list-group-flush
+                                                    "
+                                                >
+
+                                                    ${sidebarChapter.scenes.map(
+                                                        sidebarScene => {
+                                                            const isCurrentScene =
+                                                                sidebarScene.id === scene.id;
+
+                                                            const wordCount =
+                                                                countSceneWords(
+                                                                    sidebarScene.content
+                                                                );
+
+                                                            return `
+                                                                <button
+                                                                    class="
+                                                                        list-group-item
+                                                                        list-group-item-action
+                                                                        editor-sidebar-scene
+                                                                        ${
+                                                                            isCurrentScene
+                                                                                ? "active"
+                                                                                : ""
+                                                                        }
+                                                                    "
+                                                                    type="button"
+                                                                    data-chapter-id="${escapeHTML(sidebarChapter.id)}"
+                                                                    data-scene-id="${escapeHTML(sidebarScene.id)}"
+                                                                    ${
+                                                                        isCurrentScene
+                                                                            ? 'aria-current="true"'
+                                                                            : ""
+                                                                    }
+                                                                >
+
+                                                                    <div>
+                                                                        ${escapeHTML(sidebarScene.title)}
+                                                                    </div>
+
+                                                                    <small
+                                                                        class="${
+                                                                            isCurrentScene
+                                                                                ? ""
+                                                                                : "text-muted"
+                                                                        }"
+                                                                    >
+                                                                        ${formatWordCount(wordCount)}
+                                                                    </small>
+
+                                                                </button>
+                                                            `;
+                                                        }
+                                                    ).join("")}
+
+                                                </div>
+                                            `
+                                    }
+
+                                </div>
+                            `;
+                        }).join("")}
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </aside>
+    `;
+}
+
+
+// ============================================================
+// SCENE EDITOR TOOLBAR
+// ============================================================
+
+/*
+ * Build the rich-text formatting toolbar.
+ *
+ * All existing button IDs are preserved for the TipTap
+ * editor event handlers.
+ */
+function renderEditorToolbar() {
+    return `
+        <div
+            id="scene-editor-toolbar"
+            class="d-flex flex-wrap gap-2 mb-3"
+            role="toolbar"
+            aria-label="Scene formatting toolbar"
+        >
+
+            <!-- BASIC TEXT FORMATTING -->
+
+            <div
+                class="btn-group"
+                role="group"
+                aria-label="Text formatting"
+            >
+
+                <button
+                    id="editor-bold"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                    title="Bold"
+                    aria-label="Bold"
+                >
+                    <strong>B</strong>
+                </button>
+
+                <button
+                    id="editor-italic"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                    title="Italic"
+                    aria-label="Italic"
+                >
+                    <em>I</em>
+                </button>
+
+                <button
+                    id="editor-underline"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                    title="Underline"
+                    aria-label="Underline"
+                >
+                    <u>U</u>
+                </button>
+
+            </div>
+
+
+            <!-- TEXT ALIGNMENT -->
+
+            <div
+                class="btn-group"
+                role="group"
+                aria-label="Text alignment"
+            >
+
+                <button
+                    id="editor-align-left"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                    title="Align Left"
+                >
+                    Left
+                </button>
+
+                <button
+                    id="editor-align-center"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                    title="Align Centre"
+                >
+                    Centre
+                </button>
+
+                <button
+                    id="editor-align-right"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                    title="Align Right"
+                >
+                    Right
+                </button>
+
+                <button
+                    id="editor-align-justify"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                    title="Justify"
+                >
+                    Justify
+                </button>
+
+            </div>
+
+
+            <!-- PARAGRAPH INDENTATION -->
+
+            <div
+                class="btn-group"
+                role="group"
+                aria-label="Paragraph indentation"
+            >
+
+                <button
+                    id="editor-first-line-indent"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                    title="First-line indent"
+                >
+                    First Line
+                </button>
+
+                <button
+                    id="editor-indent"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                    title="Increase paragraph indent"
+                >
+                    Indent
+                </button>
+
+                <button
+                    id="editor-outdent"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                    title="Decrease paragraph indent"
+                >
+                    Outdent
+                </button>
+
+            </div>
+
+
+            <!-- LINE SPACING -->
+
+            <div
+                class="input-group"
+                style="width: auto;"
+            >
+
+                <label
+                    class="input-group-text"
+                    for="editor-line-spacing"
+                >
+                    Line Spacing
+                </label>
+
+                <select
+                    id="editor-line-spacing"
+                    class="form-select"
+                    aria-label="Line spacing"
+                >
+
+                    <option value="">Normal</option>
+                    <option value="1">1.0</option>
+                    <option value="1.15">1.15</option>
+                    <option value="1.5">1.5</option>
+                    <option value="2">2.0</option>
+
+                </select>
+
+            </div>
+
+
+            <!-- UNDO AND REDO -->
+
+            <div
+                class="btn-group"
+                role="group"
+                aria-label="Editor history"
+            >
+
+                <button
+                    id="editor-undo"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                    title="Undo"
+                >
+                    Undo
+                </button>
+
+                <button
+                    id="editor-redo"
+                    class="btn btn-outline-secondary"
+                    type="button"
+                    title="Redo"
+                >
+                    Redo
+                </button>
+
+            </div>
+
+        </div>
+    `;
+}
+
+
+// ============================================================
 // SCENE EDITOR VIEW
 // ============================================================
 
-// Render the selected scene and provide a rich-text editor interface.
-export function renderSceneView(container, project, chapter, scene) {
-
-    // Calculate the word count currently stored in the scene.
+/*
+ * Render the scene editor.
+ *
+ * Includes:
+ * - Back navigation
+ * - Desktop chapter/scene sidebar
+ * - Scene title and actions
+ * - Rich-text formatting toolbar
+ * - TipTap editor mount
+ * - Autosave status
+ * - Live word count
+ * - Manual save button
+ *
+ * Editor creation and saving remain the responsibility of app.js.
+ */
+export function renderSceneView(
+    container,
+    project,
+    chapter,
+    scene
+) {
     const sceneWordCount = countSceneWords(scene.content);
 
     container.innerHTML = `
@@ -798,214 +1086,30 @@ export function renderSceneView(container, project, chapter, scene) {
 
         <div class="container-fluid mt-4 px-3 px-lg-4">
 
-
-            <!-- ====================================================== -->
             <!-- BACK NAVIGATION -->
-            <!-- ====================================================== -->
 
             <button
                 id="back-to-chapter"
                 class="btn btn-outline-secondary mb-4"
                 type="button"
             >
-                ← Back to ${chapter.title}
+                ← Back to ${escapeHTML(chapter.title)}
             </button>
 
 
-            <!-- ====================================================== -->
             <!-- EDITOR LAYOUT -->
-            <!-- ====================================================== -->
 
             <div class="row g-4">
 
-
-                <!-- ================================================== -->
-                <!-- DESKTOP SIDEBAR -->
-                <!-- ================================================== -->
-
-                <!--
-                    Hidden below Bootstrap's large breakpoint.
-                    Mobile and tablet users retain the Back button instead.
-                -->
-                <aside
-                    class="col-lg-3 d-none d-lg-block"
-                    id="editor-sidebar"
-                >
-
-                    <div class="card">
-
-                        <div class="card-body">
-
-                            <!-- Current project. -->
-                            <h2 class="h5 mb-1">
-                                ${project.title}
-                            </h2>
-
-                            <p class="text-muted small mb-4">
-                                ${formatWordCount(
-                                    countProjectWords(project)
-                                )}
-                            </p>
+                ${renderEditorSidebar(project, chapter, scene)}
 
 
-                            <!-- Project chapter/scene navigation. -->
-                            <div id="editor-sidebar-navigation">
-
-                                ${project.chapters.map(sidebarChapter => {
-
-                                    const chapterWordCount =
-                                        countChapterWords(sidebarChapter);
-
-                                    const isCurrentChapter =
-                                        sidebarChapter.id === chapter.id;
-
-                                    return `
-                                        <div class="mb-4">
-
-                                            <!-- Jump to this chapter. -->
-                                            <button
-                                                class="
-                                                    btn
-                                                    btn-sm
-                                                    w-100
-                                                    text-start
-                                                    editor-sidebar-chapter
-                                                    ${
-                                                        isCurrentChapter
-                                                            ? "fw-bold"
-                                                            : ""
-                                                    }
-                                                "
-                                                type="button"
-                                                data-chapter-id="${sidebarChapter.id}"
-                                            >
-                                                ${sidebarChapter.title}
-                                            </button>
-
-
-                                            <div
-                                                class="
-                                                    text-muted
-                                                    small
-                                                    px-2
-                                                    mb-2
-                                                "
-                                            >
-                                                ${formatWordCount(
-                                                    chapterWordCount
-                                                )}
-                                            </div>
-
-
-                                            ${
-                                                sidebarChapter.scenes.length === 0
-
-                                                    ? `
-                                                        <p
-                                                            class="
-                                                                text-muted
-                                                                small
-                                                                fst-italic
-                                                                px-2
-                                                                mb-0
-                                                            "
-                                                        >
-                                                            No scenes
-                                                        </p>
-                                                    `
-
-                                                    : `
-                                                        <div
-                                                            class="
-                                                                list-group
-                                                                list-group-flush
-                                                            "
-                                                        >
-
-                                                            ${sidebarChapter.scenes.map(
-                                                                sidebarScene => {
-
-                                                                    const isCurrentScene =
-                                                                        sidebarScene.id === scene.id;
-
-                                                                    const sidebarSceneWordCount =
-                                                                        countSceneWords(
-                                                                            sidebarScene.content
-                                                                        );
-
-                                                                    return `
-                                                                        <button
-                                                                            class="
-                                                                                list-group-item
-                                                                                list-group-item-action
-                                                                                editor-sidebar-scene
-                                                                                ${
-                                                                                    isCurrentScene
-                                                                                        ? "active"
-                                                                                        : ""
-                                                                                }
-                                                                            "
-                                                                            type="button"
-                                                                            data-chapter-id="${sidebarChapter.id}"
-                                                                            data-scene-id="${sidebarScene.id}"
-                                                                            ${
-                                                                                isCurrentScene
-                                                                                    ? 'aria-current="true"'
-                                                                                    : ""
-                                                                            }
-                                                                        >
-
-                                                                            <div>
-                                                                                ${sidebarScene.title}
-                                                                            </div>
-
-                                                                            <small
-                                                                                class="${
-                                                                                    isCurrentScene
-                                                                                        ? ""
-                                                                                        : "text-muted"
-                                                                                }"
-                                                                            >
-                                                                                ${formatWordCount(
-                                                                                    sidebarSceneWordCount
-                                                                                )}
-                                                                            </small>
-
-                                                                        </button>
-                                                                    `;
-                                                                }
-                                                            ).join("")}
-
-                                                        </div>
-                                                    `
-                                            }
-
-                                        </div>
-                                    `;
-                                }).join("")}
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                </aside>
-
-
-                <!-- ================================================== -->
                 <!-- MAIN EDITOR COLUMN -->
-                <!-- ================================================== -->
 
                 <main class="col-12 col-lg-9">
 
+                    <!-- SCENE INFORMATION -->
 
-                    <!--
-                        Scene title and scene action menu.
-
-                        The same Rename/Delete classes used on scene cards
-                        are reused here so app.js can share the handlers.
-                    -->
                     <div
                         class="
                             d-flex
@@ -1017,325 +1121,29 @@ export function renderSceneView(container, project, chapter, scene) {
 
                         <div>
 
-                            <h1>${scene.title}</h1>
+                            <h1>${escapeHTML(scene.title)}</h1>
 
                             <p class="text-muted">
-                                ${project.title} / ${chapter.title}
+                                ${escapeHTML(project.title)}
+                                /
+                                ${escapeHTML(chapter.title)}
                             </p>
 
                         </div>
 
-
-                        <!-- Active scene actions. -->
-                        <details class="position-relative">
-
-                            <summary
-                                class="
-                                    btn
-                                    btn-sm
-                                    btn-outline-secondary
-                                "
-                                title="Scene actions"
-                                aria-label="Scene actions"
-                            >
-                                ⋮
-                            </summary>
-
-                            <div
-                                class="
-                                    position-absolute
-                                    end-0
-                                    mt-2
-                                    p-2
-                                    bg-body
-                                    border
-                                    rounded
-                                    shadow-sm
-                                "
-                                style="
-                                    min-width: 10rem;
-                                    z-index: 10;
-                                "
-                            >
-
-                                <!-- Rename the scene currently being edited. -->
-                                <button
-                                    class="
-                                        btn
-                                        btn-sm
-                                        btn-outline-secondary
-                                        w-100
-                                        text-start
-                                        mb-2
-                                        rename-scene
-                                    "
-                                    type="button"
-                                    data-scene-id="${scene.id}"
-                                >
-                                    Rename
-                                </button>
-
-
-                                <!-- Delete the scene currently being edited. -->
-                                <button
-                                    class="
-                                        btn
-                                        btn-sm
-                                        btn-outline-danger
-                                        w-100
-                                        text-start
-                                        delete-scene
-                                    "
-                                    type="button"
-                                    data-scene-id="${scene.id}"
-                                >
-                                    Delete
-                                </button>
-
-                            </div>
-
-                        </details>
+                        ${renderActionMenu("scene", scene.id)}
 
                     </div>
 
                     <hr>
 
 
-                    <!-- ================================================== -->
                     <!-- RICH-TEXT TOOLBAR -->
-                    <!-- ================================================== -->
 
-                    <div
-                        id="scene-editor-toolbar"
-                        class="d-flex flex-wrap gap-2 mb-3"
-                        role="toolbar"
-                        aria-label="Scene formatting toolbar"
-                    >
+                    ${renderEditorToolbar()}
 
 
-                        <!-- ============================================== -->
-                        <!-- BASIC TEXT FORMATTING -->
-                        <!-- ============================================== -->
-
-                        <div
-                            class="btn-group"
-                            role="group"
-                            aria-label="Text formatting"
-                        >
-
-                            <button
-                                id="editor-bold"
-                                class="btn btn-outline-secondary"
-                                type="button"
-                                title="Bold"
-                                aria-label="Bold"
-                            >
-                                <strong>B</strong>
-                            </button>
-
-
-                            <button
-                                id="editor-italic"
-                                class="btn btn-outline-secondary"
-                                type="button"
-                                title="Italic"
-                                aria-label="Italic"
-                            >
-                                <em>I</em>
-                            </button>
-
-
-                            <button
-                                id="editor-underline"
-                                class="btn btn-outline-secondary"
-                                type="button"
-                                title="Underline"
-                                aria-label="Underline"
-                            >
-                                <u>U</u>
-                            </button>
-
-                        </div>
-
-
-                        <!-- ============================================== -->
-                        <!-- TEXT ALIGNMENT -->
-                        <!-- ============================================== -->
-
-                        <div
-                            class="btn-group"
-                            role="group"
-                            aria-label="Text alignment"
-                        >
-
-                            <button
-                                id="editor-align-left"
-                                class="btn btn-outline-secondary"
-                                type="button"
-                                title="Align Left"
-                            >
-                                Left
-                            </button>
-
-
-                            <button
-                                id="editor-align-center"
-                                class="btn btn-outline-secondary"
-                                type="button"
-                                title="Align Centre"
-                            >
-                                Centre
-                            </button>
-
-
-                            <button
-                                id="editor-align-right"
-                                class="btn btn-outline-secondary"
-                                type="button"
-                                title="Align Right"
-                            >
-                                Right
-                            </button>
-
-
-                            <button
-                                id="editor-align-justify"
-                                class="btn btn-outline-secondary"
-                                type="button"
-                                title="Justify"
-                            >
-                                Justify
-                            </button>
-
-                        </div>
-
-
-                        <!-- ============================================== -->
-                        <!-- MANUSCRIPT INDENTATION -->
-                        <!-- ============================================== -->
-
-                        <div
-                            class="btn-group"
-                            role="group"
-                            aria-label="Paragraph indentation"
-                        >
-
-                            <button
-                                id="editor-first-line-indent"
-                                class="btn btn-outline-secondary"
-                                type="button"
-                                title="First-line indent"
-                            >
-                                First Line
-                            </button>
-
-
-                            <button
-                                id="editor-indent"
-                                class="btn btn-outline-secondary"
-                                type="button"
-                                title="Increase paragraph indent"
-                            >
-                                Indent
-                            </button>
-
-
-                            <button
-                                id="editor-outdent"
-                                class="btn btn-outline-secondary"
-                                type="button"
-                                title="Decrease paragraph indent"
-                            >
-                                Outdent
-                            </button>
-
-                        </div>
-
-
-                        <!-- ============================================== -->
-                        <!-- LINE SPACING -->
-                        <!-- ============================================== -->
-
-                        <div
-                            class="input-group"
-                            style="width: auto;"
-                        >
-
-                            <label
-                                class="input-group-text"
-                                for="editor-line-spacing"
-                            >
-                                Line Spacing
-                            </label>
-
-                            <select
-                                id="editor-line-spacing"
-                                class="form-select"
-                                aria-label="Line spacing"
-                            >
-
-                                <option value="">
-                                    Normal
-                                </option>
-
-                                <option value="1">
-                                    1.0
-                                </option>
-
-                                <option value="1.15">
-                                    1.15
-                                </option>
-
-                                <option value="1.5">
-                                    1.5
-                                </option>
-
-                                <option value="2">
-                                    2.0
-                                </option>
-
-                            </select>
-
-                        </div>
-
-
-                        <!-- ============================================== -->
-                        <!-- HISTORY CONTROLS -->
-                        <!-- ============================================== -->
-
-                        <div
-                            class="btn-group"
-                            role="group"
-                            aria-label="Editor history"
-                        >
-
-                            <button
-                                id="editor-undo"
-                                class="btn btn-outline-secondary"
-                                type="button"
-                                title="Undo"
-                            >
-                                Undo
-                            </button>
-
-
-                            <button
-                                id="editor-redo"
-                                class="btn btn-outline-secondary"
-                                type="button"
-                                title="Redo"
-                            >
-                                Redo
-                            </button>
-
-                        </div>
-
-                    </div>
-
-
-                    <!-- ================================================== -->
                     <!-- TIPTAP WRITING AREA -->
-                    <!-- ================================================== -->
 
                     <div
                         id="scene-editor"
@@ -1344,11 +1152,8 @@ export function renderSceneView(container, project, chapter, scene) {
                     ></div>
 
 
-                    <!-- ================================================== -->
                     <!-- EDITOR FOOTER -->
-                    <!-- ================================================== -->
 
-                    <!-- Autosave status and live word count. -->
                     <div
                         class="
                             d-flex
@@ -1358,6 +1163,7 @@ export function renderSceneView(container, project, chapter, scene) {
                         "
                     >
 
+                        <!-- Autosave status. -->
                         <small
                             id="scene-save-status"
                             class="text-muted"
@@ -1365,7 +1171,7 @@ export function renderSceneView(container, project, chapter, scene) {
                             Saved
                         </small>
 
-
+                        <!-- Live word count. -->
                         <small
                             id="scene-word-count"
                             class="text-muted"
@@ -1376,14 +1182,8 @@ export function renderSceneView(container, project, chapter, scene) {
                     </div>
 
 
-                    <!-- ================================================== -->
                     <!-- MANUAL SAVE -->
-                    <!-- ================================================== -->
 
-                    <!--
-                        Autosave handles normal writing, but this remains
-                        available as an immediate manual save override.
-                    -->
                     <button
                         id="save-scene"
                         class="btn btn-primary mt-3"

@@ -1,28 +1,8 @@
-// Coordinates the dashboard, project view, chapter view, scene editor,
-// autosave behaviour, record management, global navigation,
-// and user interactions.
 
-
-// ============================================================
-// TIPTAP EDITOR IMPORTS
-// ============================================================
-
-// Core TipTap editor.
 import { Editor } from "@tiptap/core";
-
-// StarterKit provides common formatting features.
 import StarterKit from "@tiptap/starter-kit";
-
-// Adds paragraph and heading alignment controls.
 import TextAlign from "@tiptap/extension-text-align";
-
-// Adds StoryForge's custom manuscript paragraph formatting.
 import { ParagraphFormatting } from "./editorExtensions.js";
-
-
-// ============================================================
-// STORYFORGE IMPORTS
-// ============================================================
 
 import {
     addProject,
@@ -49,1769 +29,914 @@ import {
 } from "./ui.js";
 
 import { countSceneWords } from "./wordCount.js";
+import { renderManuscript } from "./manuscript.js";
+import { downloadManuscript } from "./export.js";
 
+// ============================================================
+// APPLICATION STATE
+// ============================================================
 
-// Main application container from index.html.
 const app = document.querySelector("#app");
 
-
-/*
- * Stores a cleanup function while a scene editor is active.
- *
- * This lets global navigation safely save and destroy the
- * current TipTap editor before replacing the page.
- */
+// Stores the cleanup function for the currently active editor.
 let activeSceneCleanup = null;
 
+function cleanupActiveEditor() {
+    if (activeSceneCleanup) {
+        activeSceneCleanup();
+    }
+}
 
 // ============================================================
 // GLOBAL NAVIGATION
 // ============================================================
 
-/*
- * Handle clicks on the StoryForge logo from any application view.
- *
- * Event delegation means this keeps working even though ui.js
- * repeatedly replaces the contents of #app.
- */
-app.addEventListener("click", (event) => {
-
-    // Check whether the StoryForge logo/home button was clicked.
-    const homeButton =
-        event.target.closest(".storyforge-home");
-
-    // Ignore unrelated clicks.
-    if (!homeButton) {
+app.addEventListener("click", event => {
+    if (!event.target.closest(".storyforge-home")) {
         return;
     }
 
-
-    /*
-     * If a scene editor is currently open, save any pending
-     * changes and destroy TipTap before leaving.
-     */
-    if (activeSceneCleanup) {
-        activeSceneCleanup();
-    }
-
-
-    // Return to the main StoryForge dashboard.
+    cleanupActiveEditor();
     showDashboard();
 });
-
 
 // ============================================================
 // DASHBOARD
 // ============================================================
 
-// Render the dashboard and attach handlers for project management.
 function showDashboard() {
-
-    // Build the dashboard interface.
     renderCreateProjectForm(app);
 
-    // Get references to dashboard elements.
-    const form =
-        document.querySelector("#create-project-form");
+    const form = app.querySelector("#create-project-form");
+    const titleInput = app.querySelector("#project-title");
+    const projectList = app.querySelector("#project-list");
 
-    const titleInput =
-        document.querySelector("#project-title");
-
-    const projectList =
-        document.querySelector("#project-list");
-
-
-    // Re-read storage so the project list always shows current data.
     function refreshProjectList() {
-
-        const projects = getProjects();
-
-        renderProjectList(
-            projectList,
-            projects
-        );
+        renderProjectList(projectList, getProjects());
     }
 
-
-    // Display existing projects.
     refreshProjectList();
 
-
-    // ========================================================
-    // PROJECT CREATION
-    // ========================================================
-
-    form.addEventListener("submit", (event) => {
-
-        // Stop the browser from refreshing the page.
+    // Create a project.
+    form.addEventListener("submit", event => {
         event.preventDefault();
 
-        // Clean up the entered title.
-        const title =
-            titleInput.value.trim();
+        const title = titleInput.value.trim();
 
-        // Do not create an empty project title.
-        if (!title) {
-            return;
-        }
+        if (!title) return;
 
-        // Create and save the project.
         addProject(title);
-
-        // Clear the input.
         titleInput.value = "";
-
-        // Display the updated project collection.
         refreshProjectList();
     });
 
-
-    // ========================================================
-    // PROJECT ACTIONS
-    // ========================================================
-
-    /*
-     * Use one listener for the project list.
-     *
-     * This continues working after the project cards are
-     * re-rendered following creation, rename, or deletion.
-     */
-    projectList.addEventListener("click", (event) => {
-
-        // ----------------------------------------------------
-        // RENAME PROJECT
-        // ----------------------------------------------------
-
+    // Handle project cards and actions through delegation.
+    projectList.addEventListener("click", event => {
         const renameButton =
             event.target.closest(".rename-project");
 
         if (renameButton) {
+            const projectId = renameButton.dataset.projectId;
+            const project = getProjectById(projectId);
 
-            const projectId =
-                renameButton.dataset.projectId;
+            if (!project) return;
 
-            const project =
-                getProjectById(projectId);
+            const newTitle = window.prompt(
+                "Rename project:",
+                project.title
+            );
 
-            // Stop if the project no longer exists.
-            if (!project) {
-                return;
-            }
+            if (newTitle === null) return;
 
-
-            // Ask for the replacement title.
-            const newTitle =
-                window.prompt(
-                    "Rename project:",
-                    project.title
-                );
-
-
-            // Cancel was selected.
-            if (newTitle === null) {
-                return;
-            }
-
-
-            // Rename the project.
-            const renamedProject =
-                renameProject(
-                    projectId,
-                    newTitle
-                );
-
-
-            // Refresh if the rename succeeded.
-            if (renamedProject) {
+            if (renameProject(projectId, newTitle)) {
                 refreshProjectList();
             }
 
             return;
         }
 
-
-        // ----------------------------------------------------
-        // DELETE PROJECT
-        // ----------------------------------------------------
-
         const deleteButton =
             event.target.closest(".delete-project");
 
         if (deleteButton) {
+            const projectId = deleteButton.dataset.projectId;
+            const project = getProjectById(projectId);
 
-            const projectId =
-                deleteButton.dataset.projectId;
+            if (!project) return;
 
-            const project =
-                getProjectById(projectId);
+            const confirmed = window.confirm(
+                `Delete "${project.title}"?\n\n` +
+                "This will permanently delete the project, " +
+                "including all chapters, scenes, and written content."
+            );
 
-            // Stop if the project no longer exists.
-            if (!project) {
-                return;
-            }
+            if (!confirmed) return;
 
-
-            // Warn that everything nested inside will disappear.
-            const confirmed =
-                window.confirm(
-                    `Delete "${project.title}"?\n\n` +
-                    "This will permanently delete the project, " +
-                    "including all chapters, scenes, and written content."
-                );
-
-
-            // Leave the project untouched if cancelled.
-            if (!confirmed) {
-                return;
-            }
-
-
-            // Permanently remove the project.
             deleteProject(projectId);
-
-            // Refresh the dashboard.
             refreshProjectList();
-
             return;
         }
-
-
-        // ----------------------------------------------------
-        // OPEN PROJECT
-        // ----------------------------------------------------
 
         const projectCard =
             event.target.closest(".project-card");
 
-        // Ignore unrelated clicks.
-        if (!projectCard) {
-            return;
+        if (projectCard) {
+            openProject(projectCard.dataset.projectId);
         }
-
-
-        const projectId =
-            projectCard.dataset.projectId;
-
-        // Open the selected project.
-        openProject(projectId);
     });
 }
 
+// ============================================================
+// FULL MANUSCRIPT VIEW
+// ============================================================
+
+/*
+ * Show all chapters and scenes as one continuous document.
+ * This is a read-only view of the existing project data.
+ */
+function openManuscript(projectId) {
+    const project = getProjectById(projectId);
+
+    if (!project) {
+        showDashboard();
+        return;
+    }
+
+    renderManuscript(app, project);
+
+    app.querySelector("#back-to-project")
+        ?.addEventListener("click", () => {
+            openProject(projectId);
+        });
+}
 
 // ============================================================
 // PROJECT VIEW
 // ============================================================
 
-// Render one project and attach chapter management handlers.
 function openProject(projectId) {
+    const project = getProjectById(projectId);
 
-    // Load the selected project.
-    const project =
-        getProjectById(projectId);
+    if (!project) return;
 
-    // Stop if the project could not be found.
-    if (!project) {
-        return;
-    }
+    renderProjectView(app, project);
 
+    // --------------------------------------------------------
+    // MANUSCRIPT VIEW
+    // --------------------------------------------------------
 
-    // Build the project interface.
-    renderProjectView(
-        app,
-        project
-    );
+    app.querySelector("#view-manuscript")
+        ?.addEventListener("click", () => {
+            openManuscript(projectId);
+        });
 
+    // --------------------------------------------------------
+    // DOCX EXPORT
+    // --------------------------------------------------------
 
-    // Get references to project controls.
-    const backButton =
-        document.querySelector("#back-to-projects");
+    const downloadButton =
+        app.querySelector("#download-manuscript");
 
-    const chapterForm =
-        document.querySelector("#create-chapter-form");
+    downloadButton?.addEventListener("click", async () => {
+        downloadButton.disabled = true;
 
-    const chapterTitleInput =
-        document.querySelector("#chapter-title");
+        try {
+            // Fetch fresh data rather than using an old snapshot.
+            const currentProject = getProjectById(projectId);
 
-    const chapterCards =
-        document.querySelectorAll(".chapter-card");
+            if (!currentProject) {
+                throw new Error("Project not found.");
+            }
 
-    const renameChapterButtons =
-        document.querySelectorAll(".rename-chapter");
+            await downloadManuscript(currentProject);
+        } catch (error) {
+            console.error("Manuscript export failed:", error);
 
-    const deleteChapterButtons =
-        document.querySelectorAll(".delete-chapter");
-
-
-    // ========================================================
-    // BACK NAVIGATION
-    // ========================================================
-
-    backButton.addEventListener("click", () => {
-
-        showDashboard();
+            window.alert(
+                error.message ||
+                "The manuscript could not be downloaded."
+            );
+        } finally {
+            downloadButton.disabled = false;
+        }
     });
 
+    // --------------------------------------------------------
+    // BACK NAVIGATION
+    // --------------------------------------------------------
 
-    // ========================================================
+    app.querySelector("#back-to-projects")
+        .addEventListener("click", showDashboard);
+
+    // --------------------------------------------------------
     // CHAPTER CREATION
-    // ========================================================
+    // --------------------------------------------------------
 
-    chapterForm.addEventListener("submit", (event) => {
+    const chapterForm =
+        app.querySelector("#create-chapter-form");
 
+    const chapterTitleInput =
+        app.querySelector("#chapter-title");
+
+    chapterForm.addEventListener("submit", event => {
         event.preventDefault();
 
-        const title =
-            chapterTitleInput.value.trim();
+        const title = chapterTitleInput.value.trim();
 
-        // Do not create an empty chapter.
-        if (!title) {
-            return;
-        }
+        if (!title) return;
 
-
-        // Add the chapter to the selected project.
-        addChapterToProject(
-            projectId,
-            title
-        );
-
-
-        // Reload the project with fresh data.
+        addChapterToProject(projectId, title);
         openProject(projectId);
     });
 
-
-    // ========================================================
+    // --------------------------------------------------------
     // OPEN CHAPTER
-    // ========================================================
+    // --------------------------------------------------------
 
-    chapterCards.forEach((chapterCard) => {
-
-        chapterCard.addEventListener("click", () => {
-
-            const chapterId =
-                chapterCard.dataset.chapterId;
-
+    app.querySelectorAll(".chapter-card").forEach(card => {
+        card.addEventListener("click", () => {
             openChapter(
                 projectId,
-                chapterId
+                card.dataset.chapterId
             );
         });
     });
 
-
-    // ========================================================
+    // --------------------------------------------------------
     // RENAME CHAPTER
-    // ========================================================
+    // --------------------------------------------------------
 
-    renameChapterButtons.forEach((renameButton) => {
+    app.querySelectorAll(".rename-chapter").forEach(button => {
+        button.addEventListener("click", () => {
+            const chapterId = button.dataset.chapterId;
 
-        renameButton.addEventListener("click", () => {
+            const chapter = project.chapters.find(
+                item => item.id === chapterId
+            );
 
-            const chapterId =
-                renameButton.dataset.chapterId;
+            if (!chapter) return;
 
+            const newTitle = window.prompt(
+                "Rename chapter:",
+                chapter.title
+            );
 
-            const chapter =
-                project.chapters.find(
-                    chapter =>
-                        chapter.id === chapterId
-                );
+            if (newTitle === null) return;
 
-
-            if (!chapter) {
-                return;
-            }
-
-
-            const newTitle =
-                window.prompt(
-                    "Rename chapter:",
-                    chapter.title
-                );
-
-
-            if (newTitle === null) {
-                return;
-            }
-
-
-            const renamedChapter =
-                renameChapter(
-                    projectId,
-                    chapterId,
-                    newTitle
-                );
-
-
-            if (renamedChapter) {
+            if (renameChapter(projectId, chapterId, newTitle)) {
                 openProject(projectId);
             }
         });
     });
 
-
-    // ========================================================
+    // --------------------------------------------------------
     // DELETE CHAPTER
-    // ========================================================
+    // --------------------------------------------------------
 
-    deleteChapterButtons.forEach((deleteButton) => {
+    app.querySelectorAll(".delete-chapter").forEach(button => {
+        button.addEventListener("click", () => {
+            const chapterId = button.dataset.chapterId;
 
-        deleteButton.addEventListener("click", () => {
-
-            const chapterId =
-                deleteButton.dataset.chapterId;
-
-
-            const chapter =
-                project.chapters.find(
-                    chapter =>
-                        chapter.id === chapterId
-                );
-
-
-            if (!chapter) {
-                return;
-            }
-
-
-            const confirmed =
-                window.confirm(
-                    `Delete "${chapter.title}"?\n\n` +
-                    "This will permanently delete this chapter " +
-                    "and every scene inside it."
-                );
-
-
-            if (!confirmed) {
-                return;
-            }
-
-
-            deleteChapter(
-                projectId,
-                chapterId
+            const chapter = project.chapters.find(
+                item => item.id === chapterId
             );
 
+            if (!chapter) return;
 
+            const confirmed = window.confirm(
+                `Delete "${chapter.title}"?\n\n` +
+                "This will permanently delete this chapter " +
+                "and every scene inside it."
+            );
+
+            if (!confirmed) return;
+
+            deleteChapter(projectId, chapterId);
             openProject(projectId);
         });
     });
 }
 
-
 // ============================================================
 // CHAPTER VIEW
 // ============================================================
 
-// Render one chapter and attach scene management handlers.
 function openChapter(projectId, chapterId) {
+    const project = getProjectById(projectId);
 
-    // Load the parent project.
-    const project =
-        getProjectById(projectId);
+    if (!project) return;
 
-    if (!project) {
-        return;
-    }
-
-
-    // Find the requested chapter.
-    const chapter =
-        project.chapters.find(
-            chapter =>
-                chapter.id === chapterId
-        );
-
-    if (!chapter) {
-        return;
-    }
-
-
-    // Build the chapter interface.
-    renderChapterView(
-        app,
-        project,
-        chapter
+    const chapter = project.chapters.find(
+        item => item.id === chapterId
     );
 
+    if (!chapter) return;
 
-    // Get references to chapter controls.
-    const backButton =
-        document.querySelector("#back-to-project");
+    renderChapterView(app, project, chapter);
+
+    // Back to project.
+    app.querySelector("#back-to-project")
+        .addEventListener("click", () => {
+            openProject(projectId);
+        });
+
+    // --------------------------------------------------------
+    // CREATE SCENE
+    // --------------------------------------------------------
 
     const sceneForm =
-        document.querySelector("#create-scene-form");
+        app.querySelector("#create-scene-form");
 
     const sceneTitleInput =
-        document.querySelector("#scene-title");
+        app.querySelector("#scene-title");
 
-    const sceneCards =
-        document.querySelectorAll(".scene-card");
-
-    const renameSceneButtons =
-        document.querySelectorAll(".rename-scene");
-
-    const deleteSceneButtons =
-        document.querySelectorAll(".delete-scene");
-
-
-    // ========================================================
-    // BACK NAVIGATION
-    // ========================================================
-
-    backButton.addEventListener("click", () => {
-
-        openProject(projectId);
-    });
-
-
-    // ========================================================
-    // SCENE CREATION
-    // ========================================================
-
-    sceneForm.addEventListener("submit", (event) => {
-
+    sceneForm.addEventListener("submit", event => {
         event.preventDefault();
 
-        const title =
-            sceneTitleInput.value.trim();
+        const title = sceneTitleInput.value.trim();
 
-        // Do not create an empty scene title.
-        if (!title) {
-            return;
-        }
+        if (!title) return;
 
-
-        addSceneToChapter(
-            projectId,
-            chapterId,
-            title
-        );
-
-
-        // Reload the chapter.
-        openChapter(
-            projectId,
-            chapterId
-        );
+        addSceneToChapter(projectId, chapterId, title);
+        openChapter(projectId, chapterId);
     });
 
-
-    // ========================================================
+    // --------------------------------------------------------
     // OPEN SCENE
-    // ========================================================
+    // --------------------------------------------------------
 
-    sceneCards.forEach((sceneCard) => {
-
-        sceneCard.addEventListener("click", () => {
-
-            const sceneId =
-                sceneCard.dataset.sceneId;
-
+    app.querySelectorAll(".scene-card").forEach(card => {
+        card.addEventListener("click", () => {
             openScene(
                 projectId,
                 chapterId,
-                sceneId
+                card.dataset.sceneId
             );
         });
     });
 
-
-    // ========================================================
+    // --------------------------------------------------------
     // RENAME SCENE
-    // ========================================================
+    // --------------------------------------------------------
 
-    renameSceneButtons.forEach((renameButton) => {
+    app.querySelectorAll(".rename-scene").forEach(button => {
+        button.addEventListener("click", () => {
+            const sceneId = button.dataset.sceneId;
 
-        renameButton.addEventListener("click", () => {
+            const scene = chapter.scenes.find(
+                item => item.id === sceneId
+            );
 
-            const sceneId =
-                renameButton.dataset.sceneId;
+            if (!scene) return;
 
+            const newTitle = window.prompt(
+                "Rename scene:",
+                scene.title
+            );
 
-            const scene =
-                chapter.scenes.find(
-                    scene =>
-                        scene.id === sceneId
-                );
+            if (newTitle === null) return;
 
-
-            if (!scene) {
-                return;
-            }
-
-
-            const newTitle =
-                window.prompt(
-                    "Rename scene:",
-                    scene.title
-                );
-
-
-            if (newTitle === null) {
-                return;
-            }
-
-
-            const renamedScene =
+            if (
                 renameScene(
                     projectId,
                     chapterId,
                     sceneId,
                     newTitle
-                );
-
-
-            if (renamedScene) {
-
-                openChapter(
-                    projectId,
-                    chapterId
-                );
+                )
+            ) {
+                openChapter(projectId, chapterId);
             }
         });
     });
 
-
-    // ========================================================
+    // --------------------------------------------------------
     // DELETE SCENE
-    // ========================================================
+    // --------------------------------------------------------
 
-    deleteSceneButtons.forEach((deleteButton) => {
+    app.querySelectorAll(".delete-scene").forEach(button => {
+        button.addEventListener("click", () => {
+            const sceneId = button.dataset.sceneId;
 
-        deleteButton.addEventListener("click", () => {
-
-            const sceneId =
-                deleteButton.dataset.sceneId;
-
-
-            const scene =
-                chapter.scenes.find(
-                    scene =>
-                        scene.id === sceneId
-                );
-
-
-            if (!scene) {
-                return;
-            }
-
-
-            const confirmed =
-                window.confirm(
-                    `Delete "${scene.title}"?\n\n` +
-                    "This will permanently delete this scene " +
-                    "and all of its written content."
-                );
-
-
-            if (!confirmed) {
-                return;
-            }
-
-
-            deleteScene(
-                projectId,
-                chapterId,
-                sceneId
+            const scene = chapter.scenes.find(
+                item => item.id === sceneId
             );
 
+            if (!scene) return;
 
-            openChapter(
-                projectId,
-                chapterId
+            const confirmed = window.confirm(
+                `Delete "${scene.title}"?\n\n` +
+                "This will permanently delete this scene " +
+                "and all of its written content."
             );
+
+            if (!confirmed) return;
+
+            deleteScene(projectId, chapterId, sceneId);
+            openChapter(projectId, chapterId);
         });
     });
 }
-
 
 // ============================================================
 // SCENE EDITOR VIEW
 // ============================================================
 
-// Render one scene and attach the TipTap rich-text editor.
 function openScene(projectId, chapterId, sceneId) {
+    const project = getProjectById(projectId);
 
-    // Load the parent project.
-    const project =
-        getProjectById(projectId);
+    if (!project) return;
 
-    if (!project) {
-        return;
-    }
-
-
-    // Find the selected chapter.
-    const chapter =
-        project.chapters.find(
-            chapter =>
-                chapter.id === chapterId
-        );
-
-    if (!chapter) {
-        return;
-    }
-
-
-    // Find the selected scene.
-    const scene =
-        chapter.scenes.find(
-            scene =>
-                scene.id === sceneId
-        );
-
-    if (!scene) {
-        return;
-    }
-
-
-    // Build the editor interface.
-    renderSceneView(
-        app,
-        project,
-        chapter,
-        scene
+    const chapter = project.chapters.find(
+        item => item.id === chapterId
     );
 
+    if (!chapter) return;
 
-    // ========================================================
+    const scene = chapter.scenes.find(
+        item => item.id === sceneId
+    );
+
+    if (!scene) return;
+
+    renderSceneView(app, project, chapter, scene);
+
+    // --------------------------------------------------------
     // EDITOR ELEMENTS
-    // ========================================================
+    // --------------------------------------------------------
 
-    const editorElement =
-        document.querySelector("#scene-editor");
+    const editorElement = app.querySelector("#scene-editor");
+    const backButton = app.querySelector("#back-to-chapter");
+    const saveButton = app.querySelector("#save-scene");
+    const saveStatus = app.querySelector("#scene-save-status");
+    const wordCountElement = app.querySelector("#scene-word-count");
 
-    const backButton =
-        document.querySelector("#back-to-chapter");
+    const renameButton = app.querySelector(".rename-scene");
+    const deleteButton = app.querySelector(".delete-scene");
 
-    const saveButton =
-        document.querySelector("#save-scene");
-
-    const saveStatus =
-        document.querySelector("#scene-save-status");
-
-    const sceneWordCount =
-        document.querySelector("#scene-word-count");
-
-
-    // Active scene actions.
-    const renameSceneButton =
-        document.querySelector(".rename-scene");
-
-    const deleteSceneButton =
-        document.querySelector(".delete-scene");
-
-
-    // Basic formatting controls.
-    const boldButton =
-        document.querySelector("#editor-bold");
-
-    const italicButton =
-        document.querySelector("#editor-italic");
-
-    const underlineButton =
-        document.querySelector("#editor-underline");
-
-
-    // Alignment controls.
-    const alignLeftButton =
-        document.querySelector("#editor-align-left");
-
-    const alignCenterButton =
-        document.querySelector("#editor-align-center");
-
-    const alignRightButton =
-        document.querySelector("#editor-align-right");
-
-    const alignJustifyButton =
-        document.querySelector("#editor-align-justify");
-
-
-    // Manuscript paragraph formatting controls.
-    const firstLineIndentButton =
-        document.querySelector(
-            "#editor-first-line-indent"
-        );
-
-    const indentButton =
-        document.querySelector("#editor-indent");
-
-    const outdentButton =
-        document.querySelector("#editor-outdent");
-
-    const lineSpacingSelect =
-        document.querySelector("#editor-line-spacing");
-
-
-    // History controls.
-    const undoButton =
-        document.querySelector("#editor-undo");
-
-    const redoButton =
-        document.querySelector("#editor-redo");
-
-
-    // Desktop sidebar navigation.
-    const sidebarChapterButtons =
-        document.querySelectorAll(
-            ".editor-sidebar-chapter"
-        );
-
-    const sidebarSceneButtons =
-        document.querySelectorAll(
-            ".editor-sidebar-scene"
-        );
-
-
-    // ========================================================
-    // TIPTAP EDITOR SETUP
-    // ========================================================
+    // --------------------------------------------------------
+    // TIPTAP SETUP
+    // --------------------------------------------------------
 
     const editor = new Editor({
-
         element: editorElement,
 
         extensions: [
-
             StarterKit,
 
             TextAlign.configure({
-                types: [
-                    "heading",
-                    "paragraph"
-                ]
+                types: ["heading", "paragraph"]
             }),
 
             ParagraphFormatting
         ],
 
-        // Restore previously saved scene content.
-        content:
-            scene.content || "<p></p>",
+        content: scene.content || "<p></p>",
 
-        // Temporary editor styling.
         editorProps: {
-
             attributes: {
-
                 class: "p-3",
-
-                style:
-                    "min-height: 470px; outline: none;"
+                style: "min-height: 470px; outline: none;"
             }
         }
     });
 
-
-    // ========================================================
+    // --------------------------------------------------------
     // SAVE HELPERS
-    // ========================================================
+    // --------------------------------------------------------
 
-    // Save the editor's current HTML into the scene record.
+    let autosaveTimeout = null;
+    let hasUnsavedChanges = false;
+
+    function setSaveStatus(message) {
+        saveStatus.textContent = message;
+    }
+
     function saveCurrentScene() {
-
-        const content =
-            editor.getHTML();
-
         updateSceneContent(
             projectId,
             chapterId,
             sceneId,
-            content
+            editor.getHTML()
         );
     }
 
-
-    // Update the autosave message.
-    function setSaveStatus(message) {
-
-        saveStatus.textContent =
-            message;
-    }
-
-
-    // ========================================================
-    // AUTOSAVE STATE
-    // ========================================================
-
-    // Stores the current autosave timer.
-    let autosaveTimeout = null;
-
-    // Tracks whether unsaved editor changes exist.
-    let hasUnsavedChanges = false;
-
-
-    // ========================================================
-    // AUTOSAVE
-    // ========================================================
-
-    /*
-     * Schedule a save one second after the author stops editing.
-     */
     function scheduleAutosave() {
-
         hasUnsavedChanges = true;
+        setSaveStatus("Unsaved changes");
 
-        setSaveStatus(
-            "Unsaved changes"
-        );
-
-
-        // Restart the countdown whenever another change occurs.
-        if (autosaveTimeout) {
-
-            clearTimeout(
-                autosaveTimeout
-            );
+        if (autosaveTimeout !== null) {
+            clearTimeout(autosaveTimeout);
         }
 
-
         autosaveTimeout = setTimeout(() => {
-
-            setSaveStatus(
-                "Saving..."
-            );
-
+            autosaveTimeout = null;
+            setSaveStatus("Saving...");
 
             saveCurrentScene();
-
             hasUnsavedChanges = false;
 
-            autosaveTimeout = null;
-
-
-            setSaveStatus(
-                "Saved"
-            );
-
+            setSaveStatus("Saved");
         }, 1000);
     }
 
-
-    /*
-     * Immediately complete any pending autosave.
-     */
     function flushAutosave() {
-
-        // Cancel any waiting timer.
-        if (autosaveTimeout) {
-
-            clearTimeout(
-                autosaveTimeout
-            );
-
+        if (autosaveTimeout !== null) {
+            clearTimeout(autosaveTimeout);
             autosaveTimeout = null;
         }
 
-
-        // Save immediately if changes are waiting.
         if (hasUnsavedChanges) {
-
-            setSaveStatus(
-                "Saving..."
-            );
-
-
+            setSaveStatus("Saving...");
             saveCurrentScene();
-
             hasUnsavedChanges = false;
-
-
-            setSaveStatus(
-                "Saved"
-            );
+            setSaveStatus("Saved");
         }
     }
 
-
-    // Force an immediate save through the Save Scene button.
     function saveImmediately() {
-
-        if (autosaveTimeout) {
-
-            clearTimeout(
-                autosaveTimeout
-            );
-
+        if (autosaveTimeout !== null) {
+            clearTimeout(autosaveTimeout);
             autosaveTimeout = null;
         }
 
-
-        setSaveStatus(
-            "Saving..."
-        );
-
-
+        setSaveStatus("Saving...");
         saveCurrentScene();
-
         hasUnsavedChanges = false;
-
-
-        setSaveStatus(
-            "Saved"
-        );
+        setSaveStatus("Saved");
     }
 
-
-    // ========================================================
+    // --------------------------------------------------------
     // EDITOR CLEANUP
-    // ========================================================
+    // --------------------------------------------------------
 
-    /*
-     * Destroy the active TipTap editor.
-     *
-     * This also clears the global cleanup reference so
-     * StoryForge does not try to destroy the same editor twice.
-     */
     function destroySceneEditor() {
-
         activeSceneCleanup = null;
-
         editor.destroy();
     }
 
-
-    /*
-     * Save pending writing and then safely destroy TipTap.
-     *
-     * This function is registered globally while this scene
-     * editor is active, allowing the navbar logo to safely
-     * return to the dashboard.
-     */
     function cleanupSceneEditor() {
-
         flushAutosave();
-
         destroySceneEditor();
     }
 
+    activeSceneCleanup = cleanupSceneEditor;
 
-    /*
-     * Register this editor's cleanup function globally.
-     *
-     * The StoryForge navbar uses this when Home is clicked.
-     */
-    activeSceneCleanup =
-        cleanupSceneEditor;
+    // --------------------------------------------------------
+    // LIVE WORD COUNT
+    // --------------------------------------------------------
 
-
-    // ========================================================
-    // WORD COUNT
-    // ========================================================
-
-    // Format a live word count.
-    function formatLiveWordCount(count) {
-
-        const label =
-            count === 1
-                ? "word"
-                : "words";
-
-        return `${count.toLocaleString()} ${label}`;
-    }
-
-
-    // Recalculate the scene word count from current editor content.
     function updateLiveWordCount() {
+        const count = countSceneWords(editor.getHTML());
 
-        const content =
-            editor.getHTML();
-
-        const wordCount =
-            countSceneWords(content);
-
-
-        sceneWordCount.textContent =
-            formatLiveWordCount(
-                wordCount
-            );
+        wordCountElement.textContent =
+            `${count.toLocaleString()} ` +
+            (count === 1 ? "word" : "words");
     }
 
-
-    // ========================================================
+    // --------------------------------------------------------
     // TOOLBAR HELPERS
-    // ========================================================
+    // --------------------------------------------------------
 
-    // Add or remove the active formatting state.
-    function setButtonActive(button, isActive) {
-
-        button.classList.toggle(
-            "active",
-            isActive
-        );
-
-
-        button.setAttribute(
-            "aria-pressed",
-            String(isActive)
-        );
-    }
-
-
-    // Read custom attributes from the current paragraph.
     function getParagraphAttributes() {
-
-        return editor.getAttributes(
-            "paragraph"
-        );
+        return editor.getAttributes("paragraph");
     }
 
-
-    // Read the whole-paragraph indent as a number.
     function getParagraphIndentAmount() {
-
-        const attributes =
-            getParagraphAttributes();
-
         const marginLeft =
-            attributes.marginLeft;
+            getParagraphAttributes().marginLeft;
 
+        if (!marginLeft) return 0;
 
-        if (!marginLeft) {
-            return 0;
-        }
+        const amount = parseFloat(marginLeft);
 
-
-        const amount =
-            parseFloat(marginLeft);
-
-
-        if (Number.isNaN(amount)) {
-            return 0;
-        }
-
-
-        return amount;
+        return Number.isNaN(amount) ? 0 : amount;
     }
 
+    function setButtonActive(selector, active) {
+        const button = app.querySelector(selector);
 
-    // ========================================================
+        if (!button) return;
+
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", String(active));
+    }
+
+    // --------------------------------------------------------
     // TOOLBAR STATE
-    // ========================================================
+    // --------------------------------------------------------
 
-    // Keep toolbar controls synchronised with the cursor.
     function updateToolbarState() {
-
-        // Basic formatting.
         setButtonActive(
-            boldButton,
+            "#editor-bold",
             editor.isActive("bold")
         );
 
         setButtonActive(
-            italicButton,
+            "#editor-italic",
             editor.isActive("italic")
         );
 
         setButtonActive(
-            underlineButton,
+            "#editor-underline",
             editor.isActive("underline")
         );
 
+        for (const alignment of [
+            "left",
+            "center",
+            "right",
+            "justify"
+        ]) {
+            setButtonActive(
+                `#editor-align-${alignment}`,
+                editor.isActive({ textAlign: alignment })
+            );
+        }
 
-        // Alignment.
-        setButtonActive(
-            alignLeftButton,
-            editor.isActive({
-                textAlign: "left"
-            })
-        );
-
-        setButtonActive(
-            alignCenterButton,
-            editor.isActive({
-                textAlign: "center"
-            })
-        );
+        const attributes = getParagraphAttributes();
 
         setButtonActive(
-            alignRightButton,
-            editor.isActive({
-                textAlign: "right"
-            })
+            "#editor-first-line-indent",
+            attributes.textIndent === "0.5in"
         );
 
-        setButtonActive(
-            alignJustifyButton,
-            editor.isActive({
-                textAlign: "justify"
-            })
-        );
+        app.querySelector("#editor-line-spacing").value =
+            attributes.lineHeight || "";
 
-
-        // Paragraph formatting.
-        const paragraphAttributes =
-            getParagraphAttributes();
-
-
-        setButtonActive(
-            firstLineIndentButton,
-            paragraphAttributes.textIndent ===
-                "0.5in"
-        );
-
-
-        lineSpacingSelect.value =
-            paragraphAttributes.lineHeight ||
-            "";
-
-
-        outdentButton.disabled =
+        app.querySelector("#editor-outdent").disabled =
             getParagraphIndentAmount() <= 0;
 
+        app.querySelector("#editor-undo").disabled =
+            !editor.can().undo();
 
-        // Undo availability.
-        undoButton.disabled = !editor
-            .can()
-            .chain()
-            .focus()
-            .undo()
-            .run();
-
-
-        // Redo availability.
-        redoButton.disabled = !editor
-            .can()
-            .chain()
-            .focus()
-            .redo()
-            .run();
+        app.querySelector("#editor-redo").disabled =
+            !editor.can().redo();
     }
 
+    // --------------------------------------------------------
+    // EDITOR EVENTS
+    // --------------------------------------------------------
 
-    // ========================================================
-    // TIPTAP EVENTS
-    // ========================================================
+    editor.on("selectionUpdate", updateToolbarState);
+    editor.on("transaction", updateToolbarState);
 
-    editor.on(
-        "selectionUpdate",
-        updateToolbarState
-    );
-
-
-    editor.on(
-        "transaction",
-        updateToolbarState
-    );
-
-
-    /*
-     * Whenever scene content changes:
-     * - update word count
-     * - restart autosave
-     */
     editor.on("update", () => {
-
         updateLiveWordCount();
-
         scheduleAutosave();
     });
 
-
-    // Initialise editor state.
     updateToolbarState();
-
     updateLiveWordCount();
-
     setSaveStatus("Saved");
 
-
-    // ========================================================
+    // --------------------------------------------------------
     // BASIC TEXT FORMATTING
-    // ========================================================
+    // --------------------------------------------------------
 
-    boldButton.addEventListener(
-        "click",
-        () => {
+    app.querySelector("#editor-bold")
+        .addEventListener("click", () => {
+            editor.chain().focus().toggleBold().run();
+        });
 
-            editor
-                .chain()
-                .focus()
-                .toggleBold()
-                .run();
-        }
-    );
+    app.querySelector("#editor-italic")
+        .addEventListener("click", () => {
+            editor.chain().focus().toggleItalic().run();
+        });
 
+    app.querySelector("#editor-underline")
+        .addEventListener("click", () => {
+            editor.chain().focus().toggleUnderline().run();
+        });
 
-    italicButton.addEventListener(
-        "click",
-        () => {
-
-            editor
-                .chain()
-                .focus()
-                .toggleItalic()
-                .run();
-        }
-    );
-
-
-    underlineButton.addEventListener(
-        "click",
-        () => {
-
-            editor
-                .chain()
-                .focus()
-                .toggleUnderline()
-                .run();
-        }
-    );
-
-
-    // ========================================================
+    // --------------------------------------------------------
     // TEXT ALIGNMENT
-    // ========================================================
+    // --------------------------------------------------------
 
-    alignLeftButton.addEventListener(
-        "click",
-        () => {
+    for (const alignment of [
+        "left",
+        "center",
+        "right",
+        "justify"
+    ]) {
+        app.querySelector(`#editor-align-${alignment}`)
+            .addEventListener("click", () => {
+                editor
+                    .chain()
+                    .focus()
+                    .setTextAlign(alignment)
+                    .run();
+            });
+    }
 
-            editor
-                .chain()
-                .focus()
-                .setTextAlign("left")
-                .run();
-        }
-    );
-
-
-    alignCenterButton.addEventListener(
-        "click",
-        () => {
-
-            editor
-                .chain()
-                .focus()
-                .setTextAlign("center")
-                .run();
-        }
-    );
-
-
-    alignRightButton.addEventListener(
-        "click",
-        () => {
-
-            editor
-                .chain()
-                .focus()
-                .setTextAlign("right")
-                .run();
-        }
-    );
-
-
-    alignJustifyButton.addEventListener(
-        "click",
-        () => {
-
-            editor
-                .chain()
-                .focus()
-                .setTextAlign("justify")
-                .run();
-        }
-    );
-
-
-    // ========================================================
+    // --------------------------------------------------------
     // FIRST-LINE INDENT
-    // ========================================================
+    // --------------------------------------------------------
 
-    firstLineIndentButton.addEventListener(
-        "click",
-        () => {
+    app.querySelector("#editor-first-line-indent")
+        .addEventListener("click", () => {
+            const attributes = getParagraphAttributes();
 
-            const attributes =
-                getParagraphAttributes();
-
-
-            const newIndent =
-                attributes.textIndent ===
-                "0.5in"
+            const textIndent =
+                attributes.textIndent === "0.5in"
                     ? null
                     : "0.5in";
 
+            editor
+                .chain()
+                .focus()
+                .updateAttributes("paragraph", { textIndent })
+                .run();
+        });
+
+    // --------------------------------------------------------
+    // PARAGRAPH INDENT
+    // --------------------------------------------------------
+
+    app.querySelector("#editor-indent")
+        .addEventListener("click", () => {
+            const amount =
+                getParagraphIndentAmount() + 0.5;
 
             editor
                 .chain()
                 .focus()
-                .updateAttributes(
-                    "paragraph",
-                    {
-                        textIndent:
-                            newIndent
-                    }
-                )
+                .updateAttributes("paragraph", {
+                    marginLeft: `${amount}in`
+                })
                 .run();
-        }
-    );
+        });
 
-
-    // ========================================================
-    // WHOLE-PARAGRAPH INDENTATION
-    // ========================================================
-
-    indentButton.addEventListener(
-        "click",
-        () => {
-
-            const currentIndent =
-                getParagraphIndentAmount();
-
-            const newIndent =
-                currentIndent + 0.5;
-
+    app.querySelector("#editor-outdent")
+        .addEventListener("click", () => {
+            const amount = Math.max(
+                0,
+                getParagraphIndentAmount() - 0.5
+            );
 
             editor
                 .chain()
                 .focus()
-                .updateAttributes(
-                    "paragraph",
-                    {
-                        marginLeft:
-                            `${newIndent}in`
-                    }
-                )
+                .updateAttributes("paragraph", {
+                    marginLeft:
+                        amount === 0 ? null : `${amount}in`
+                })
                 .run();
-        }
-    );
+        });
 
-
-    outdentButton.addEventListener(
-        "click",
-        () => {
-
-            const currentIndent =
-                getParagraphIndentAmount();
-
-
-            const newIndent =
-                Math.max(
-                    0,
-                    currentIndent - 0.5
-                );
-
-
-            const marginLeft =
-                newIndent === 0
-                    ? null
-                    : `${newIndent}in`;
-
-
-            editor
-                .chain()
-                .focus()
-                .updateAttributes(
-                    "paragraph",
-                    {
-                        marginLeft:
-                            marginLeft
-                    }
-                )
-                .run();
-        }
-    );
-
-
-    // ========================================================
+    // --------------------------------------------------------
     // LINE SPACING
-    // ========================================================
+    // --------------------------------------------------------
 
-    lineSpacingSelect.addEventListener(
-        "change",
-        () => {
-
-            const selectedSpacing =
-                lineSpacingSelect.value;
-
-
-            const lineHeight =
-                selectedSpacing === ""
-                    ? null
-                    : selectedSpacing;
-
+    app.querySelector("#editor-line-spacing")
+        .addEventListener("change", event => {
+            const selected = event.target.value;
 
             editor
                 .chain()
                 .focus()
-                .updateAttributes(
-                    "paragraph",
-                    {
-                        lineHeight:
-                            lineHeight
-                    }
-                )
+                .updateAttributes("paragraph", {
+                    lineHeight: selected || null
+                })
                 .run();
-        }
-    );
+        });
 
+    // --------------------------------------------------------
+    // UNDO / REDO
+    // --------------------------------------------------------
 
-    // ========================================================
-    // UNDO AND REDO
-    // ========================================================
+    app.querySelector("#editor-undo")
+        .addEventListener("click", () => {
+            editor.chain().focus().undo().run();
+        });
 
-    undoButton.addEventListener(
-        "click",
-        () => {
+    app.querySelector("#editor-redo")
+        .addEventListener("click", () => {
+            editor.chain().focus().redo().run();
+        });
 
-            editor
-                .chain()
-                .focus()
-                .undo()
-                .run();
-        }
-    );
-
-
-    redoButton.addEventListener(
-        "click",
-        () => {
-
-            editor
-                .chain()
-                .focus()
-                .redo()
-                .run();
-        }
-    );
-
-
-    // ========================================================
+    // --------------------------------------------------------
     // MANUAL SAVE
-    // ========================================================
+    // --------------------------------------------------------
 
-    saveButton.addEventListener(
-        "click",
-        () => {
+    saveButton.addEventListener("click", () => {
+        saveImmediately();
+        saveButton.textContent = "Saved ✓";
 
-            saveImmediately();
+        setTimeout(() => {
+            if (saveButton.isConnected) {
+                saveButton.textContent = "Save Scene";
+            }
+        }, 1200);
+    });
 
-
-            saveButton.textContent =
-                "Saved ✓";
-
-
-            setTimeout(() => {
-
-                if (saveButton.isConnected) {
-
-                    saveButton.textContent =
-                        "Save Scene";
-                }
-
-            }, 1200);
-        }
-    );
-
-
-    // ========================================================
+    // --------------------------------------------------------
     // RENAME CURRENT SCENE
-    // ========================================================
+    // --------------------------------------------------------
 
-    renameSceneButton.addEventListener(
-        "click",
-        () => {
+    renameButton.addEventListener("click", () => {
+        const newTitle = window.prompt(
+            "Rename scene:",
+            scene.title
+        );
 
-            const newTitle =
-                window.prompt(
-                    "Rename scene:",
-                    scene.title
-                );
+        if (newTitle === null) return;
 
+        flushAutosave();
 
-            if (newTitle === null) {
-                return;
-            }
+        const renamed = renameScene(
+            projectId,
+            chapterId,
+            sceneId,
+            newTitle
+        );
 
+        if (!renamed) return;
 
-            // Save any pending writing first.
-            flushAutosave();
+        destroySceneEditor();
+        openScene(projectId, chapterId, sceneId);
+    });
 
-
-            const renamedScene =
-                renameScene(
-                    projectId,
-                    chapterId,
-                    sceneId,
-                    newTitle
-                );
-
-
-            if (!renamedScene) {
-                return;
-            }
-
-
-            // Destroy the current editor without another save.
-            destroySceneEditor();
-
-
-            // Re-open the renamed scene.
-            openScene(
-                projectId,
-                chapterId,
-                sceneId
-            );
-        }
-    );
-
-
-    // ========================================================
+    // --------------------------------------------------------
     // DELETE CURRENT SCENE
-    // ========================================================
+    // --------------------------------------------------------
 
-    deleteSceneButton.addEventListener(
-        "click",
-        () => {
+    deleteButton.addEventListener("click", () => {
+        const confirmed = window.confirm(
+            `Delete "${scene.title}"?\n\n` +
+            "This will permanently delete this scene " +
+            "and all of its written content."
+        );
 
-            const confirmed =
-                window.confirm(
-                    `Delete "${scene.title}"?\n\n` +
-                    "This will permanently delete this scene " +
-                    "and all of its written content."
-                );
+        if (!confirmed) return;
 
+        flushAutosave();
+        destroySceneEditor();
 
-            if (!confirmed) {
-                return;
-            }
+        deleteScene(projectId, chapterId, sceneId);
+        openChapter(projectId, chapterId);
+    });
 
-
-            /*
-             * Finish any pending autosave before destroying
-             * the editor and removing the scene.
-             */
-            flushAutosave();
-
-
-            destroySceneEditor();
-
-
-            deleteScene(
-                projectId,
-                chapterId,
-                sceneId
-            );
-
-
-            openChapter(
-                projectId,
-                chapterId
-            );
-        }
-    );
-
-
-    // ========================================================
+    // --------------------------------------------------------
     // SIDEBAR CHAPTER NAVIGATION
-    // ========================================================
+    // --------------------------------------------------------
 
-    sidebarChapterButtons.forEach(
-        (chapterButton) => {
+    app.querySelectorAll(".editor-sidebar-chapter")
+        .forEach(button => {
+            button.addEventListener("click", () => {
+                const targetChapterId =
+                    button.dataset.chapterId;
 
-            chapterButton.addEventListener(
-                "click",
-                () => {
+                cleanupSceneEditor();
 
-                    const targetChapterId =
-                        chapterButton
-                            .dataset
-                            .chapterId;
+                openChapter(
+                    projectId,
+                    targetChapterId
+                );
+            });
+        });
 
-
-                    // Save and clean up the current editor.
-                    cleanupSceneEditor();
-
-
-                    // Open the selected chapter.
-                    openChapter(
-                        projectId,
-                        targetChapterId
-                    );
-                }
-            );
-        }
-    );
-
-
-    // ========================================================
+    // --------------------------------------------------------
     // SIDEBAR SCENE NAVIGATION
-    // ========================================================
+    // --------------------------------------------------------
 
-    sidebarSceneButtons.forEach(
-        (sceneButton) => {
+    app.querySelectorAll(".editor-sidebar-scene")
+        .forEach(button => {
+            button.addEventListener("click", () => {
+                const targetChapterId =
+                    button.dataset.chapterId;
 
-            sceneButton.addEventListener(
-                "click",
-                () => {
+                const targetSceneId =
+                    button.dataset.sceneId;
 
-                    const targetChapterId =
-                        sceneButton
-                            .dataset
-                            .chapterId;
-
-                    const targetSceneId =
-                        sceneButton
-                            .dataset
-                            .sceneId;
-
-
-                    // Do nothing if the current scene was clicked.
-                    if (
-                        targetChapterId ===
-                            chapterId &&
-                        targetSceneId ===
-                            sceneId
-                    ) {
-                        return;
-                    }
-
-
-                    // Save and clean up the current editor.
-                    cleanupSceneEditor();
-
-
-                    // Open the selected scene.
-                    openScene(
-                        projectId,
-                        targetChapterId,
-                        targetSceneId
-                    );
+                if (
+                    targetChapterId === chapterId &&
+                    targetSceneId === sceneId
+                ) {
+                    return;
                 }
-            );
-        }
-    );
 
+                cleanupSceneEditor();
 
-    // ========================================================
+                openScene(
+                    projectId,
+                    targetChapterId,
+                    targetSceneId
+                );
+            });
+        });
+
+    // --------------------------------------------------------
     // BACK NAVIGATION
-    // ========================================================
+    // --------------------------------------------------------
 
-    backButton.addEventListener(
-        "click",
-        () => {
-
-            // Save pending writing and destroy TipTap.
-            cleanupSceneEditor();
-
-
-            // Return to the current chapter.
-            openChapter(
-                projectId,
-                chapterId
-            );
-        }
-    );
+    backButton.addEventListener("click", () => {
+        cleanupSceneEditor();
+        openChapter(projectId, chapterId);
+    });
 }
-
 
 // ============================================================
 // APPLICATION START
 // ============================================================
 
-// Show the StoryForge dashboard when the application first loads.
 showDashboard();
