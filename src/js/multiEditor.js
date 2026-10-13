@@ -2,16 +2,18 @@
 /*
  * StoryForge Multi-Level Editor
  *
- * Supports:
- * - Book editing
- * - Chapter editing
+ * Continuous editing for books and chapters.
+ *
+ * Features:
+ * - One shared TipTap instance
+ * - Shared sticky formatting toolbar
  * - Manuscript outline navigation
- * - Independent scene autosaving
- * - Scene separators
+ * - Chapter and scene navigation by document position
+ * - Per-scene autosaving
  * - Mobile navigation
  */
 
-import { createStoryForgeEditor } from "./editor.js";
+import { createContinuousEditor } from "./continuousEditor.js";
 import { updateSceneContent } from "./projects.js";
 import { renderManuscriptOutline } from "./manuscriptOutline.js";
 
@@ -35,21 +37,21 @@ function escapeHTML(value) {
 
 
 // ============================================================
-// EDITOR TOOLBAR
+// SHARED TOOLBAR
 // ============================================================
 
-/*
- * Keep the toolbar IDs expected by editor.js.
- * Each editor receives its own toolbar element.
- */
 function createToolbar() {
     const toolbar = document.createElement("div");
 
     toolbar.className =
-        "storyforge-multi-toolbar d-flex flex-wrap gap-2 mb-2";
+        "storyforge-continuous-toolbar " +
+        "d-flex flex-wrap align-items-center gap-2 mb-3";
 
     toolbar.setAttribute("role", "toolbar");
-    toolbar.setAttribute("aria-label", "Scene formatting");
+    toolbar.setAttribute(
+        "aria-label",
+        "Manuscript formatting"
+    );
 
     toolbar.innerHTML = `
         <button type="button" id="editor-bold"
@@ -70,6 +72,8 @@ function createToolbar() {
             <u>U</u>
         </button>
 
+        <span class="storyforge-toolbar-divider"></span>
+
         <button type="button" id="editor-align-left"
             class="btn btn-sm btn-outline-secondary">
             Left
@@ -89,6 +93,8 @@ function createToolbar() {
             class="btn btn-sm btn-outline-secondary">
             Justify
         </button>
+
+        <span class="storyforge-toolbar-divider"></span>
 
         <button type="button" id="editor-first-line-indent"
             class="btn btn-sm btn-outline-secondary">
@@ -114,6 +120,8 @@ function createToolbar() {
             <option value="2">Double</option>
         </select>
 
+        <span class="storyforge-toolbar-divider"></span>
+
         <button type="button" id="editor-undo"
             class="btn btn-sm btn-outline-secondary">
             Undo
@@ -130,104 +138,281 @@ function createToolbar() {
 
 
 // ============================================================
-// CREATE ONE EDITABLE SCENE
+// FORMATTING CONTROLS
 // ============================================================
 
-function createSceneSection({
-    projectId,
-    chapter,
-    scene,
-    instances
-}) {
-    const section = document.createElement("section");
+function connectToolbar(toolbar, editor) {
+    const listeners = [];
 
-    section.className = "storyforge-editable-scene mb-4";
+    function listen(element, eventName, handler) {
+        if (!element) return;
 
-    section.dataset.sceneId = scene.id;
-    section.dataset.chapterId = chapter.id;
+        element.addEventListener(eventName, handler);
 
-    // The scene title is a navigation label.
-    // It is not saved as part of the manuscript text.
-    section.innerHTML = `
-        <div class="
-            d-flex justify-content-between
-            align-items-center mb-2 gap-2
-        ">
-            <span class="text-muted small">
-                ${escapeHTML(scene.title || "Untitled Scene")}
-            </span>
+        listeners.push(() => {
+            element.removeEventListener(eventName, handler);
+        });
+    }
 
-            <span class="small text-muted"
-                data-save-status>
-                Saved
-            </span>
-        </div>
+    function button(id, command) {
+        const element = toolbar.querySelector(`#${id}`);
 
-        <div data-toolbar></div>
+        if (!element) return;
 
-        <div
-            class="border rounded bg-white text-dark"
-            data-editor
-        ></div>
+        listen(element, "click", () => {
+            command();
+            updateToolbarState();
+        });
+    }
 
-        <div class="
-            d-flex justify-content-between
-            align-items-center mt-2 gap-2
-        ">
-            <span class="small text-muted"
-                data-word-count>
-            </span>
+    // --------------------------------------------------------
+    // INLINE FORMATTING
+    // --------------------------------------------------------
 
-            <button
-                type="button"
-                class="btn btn-sm btn-outline-primary"
-                data-save-button
-            >
-                Save Scene
-            </button>
-        </div>
-    `;
-
-    const toolbar = createToolbar();
-
-    section.querySelector("[data-toolbar]")
-        .appendChild(toolbar);
-
-    const instance = createStoryForgeEditor({
-        element: section.querySelector("[data-editor]"),
-
-        content: scene.content || "<p></p>",
-
-        toolbar,
-
-        wordCountElement:
-            section.querySelector("[data-word-count]"),
-
-        saveStatusElement:
-            section.querySelector("[data-save-status]"),
-
-        saveButton:
-            section.querySelector("[data-save-button]"),
-
-        onSave(html) {
-            const saved = updateSceneContent(
-                projectId,
-                chapter.id,
-                scene.id,
-                html
-            );
-
-            if (saved === false) {
-                throw new Error(
-                    `Could not save scene: ${scene.title}`
-                );
-            }
-        }
+    button("editor-bold", () => {
+        editor.chain().focus().toggleBold().run();
     });
 
-    instances.push(instance);
+    button("editor-italic", () => {
+        editor.chain().focus().toggleItalic().run();
+    });
 
-    return section;
+    button("editor-underline", () => {
+        editor.chain().focus().toggleUnderline().run();
+    });
+
+    // --------------------------------------------------------
+    // TEXT ALIGNMENT
+    // --------------------------------------------------------
+
+    for (const alignment of [
+        "left",
+        "center",
+        "right",
+        "justify"
+    ]) {
+        button(`editor-align-${alignment}`, () => {
+            editor.chain()
+                .focus()
+                .setTextAlign(alignment)
+                .run();
+        });
+    }
+
+    // --------------------------------------------------------
+    // PARAGRAPH FORMATTING
+    // --------------------------------------------------------
+
+    function getParagraphAttributes() {
+        return editor.getAttributes("paragraph");
+    }
+
+    function updateParagraph(attributes) {
+        editor.chain()
+            .focus()
+            .updateAttributes("paragraph", attributes)
+            .run();
+    }
+
+    function getIndentValue(value) {
+        const parsed = Number.parseFloat(value);
+
+        return Number.isFinite(parsed)
+            ? parsed
+            : 0;
+    }
+
+    button("editor-first-line-indent", () => {
+        const attrs = getParagraphAttributes();
+
+        const current = getIndentValue(
+            attrs.textIndent
+        );
+
+        updateParagraph({
+            textIndent: current > 0
+                ? null
+                : "2em"
+        });
+    });
+
+    button("editor-indent", () => {
+        const attrs = getParagraphAttributes();
+
+        const current = getIndentValue(
+            attrs.marginLeft
+        );
+
+        updateParagraph({
+            marginLeft: `${current + 2}em`
+        });
+    });
+
+    button("editor-outdent", () => {
+        const attrs = getParagraphAttributes();
+
+        const current = getIndentValue(
+            attrs.marginLeft
+        );
+
+        updateParagraph({
+            marginLeft:
+                current <= 2
+                    ? null
+                    : `${current - 2}em`
+        });
+    });
+
+    const lineSpacing = toolbar.querySelector(
+        "#editor-line-spacing"
+    );
+
+    listen(lineSpacing, "change", () => {
+        updateParagraph({
+            lineHeight: lineSpacing.value || null
+        });
+    });
+
+    // --------------------------------------------------------
+    // HISTORY
+    // --------------------------------------------------------
+
+    button("editor-undo", () => {
+        editor.chain().focus().undo().run();
+    });
+
+    button("editor-redo", () => {
+        editor.chain().focus().redo().run();
+    });
+
+    // --------------------------------------------------------
+    // TOOLBAR STATE
+    // --------------------------------------------------------
+
+    function setButtonState(id, active) {
+        const element = toolbar.querySelector(`#${id}`);
+
+        if (!element) return;
+
+        element.classList.toggle("active", active);
+
+        element.setAttribute(
+            "aria-pressed",
+            String(active)
+        );
+    }
+
+    function updateToolbarState() {
+        if (editor.isDestroyed) return;
+
+        setButtonState(
+            "editor-bold",
+            editor.isActive("bold")
+        );
+
+        setButtonState(
+            "editor-italic",
+            editor.isActive("italic")
+        );
+
+        setButtonState(
+            "editor-underline",
+            editor.isActive("underline")
+        );
+
+        for (const alignment of [
+            "left",
+            "center",
+            "right",
+            "justify"
+        ]) {
+            setButtonState(
+                `editor-align-${alignment}`,
+                editor.isActive({
+                    textAlign: alignment
+                })
+            );
+        }
+
+        const attrs = getParagraphAttributes();
+
+        if (lineSpacing) {
+            lineSpacing.value =
+                attrs.lineHeight || "";
+        }
+
+        const undoButton = toolbar.querySelector(
+            "#editor-undo"
+        );
+
+        const redoButton = toolbar.querySelector(
+            "#editor-redo"
+        );
+
+        if (undoButton) {
+            undoButton.disabled =
+                !editor.can().undo();
+        }
+
+        if (redoButton) {
+            redoButton.disabled =
+                !editor.can().redo();
+        }
+    }
+
+    editor.on(
+        "selectionUpdate",
+        updateToolbarState
+    );
+
+    editor.on(
+        "transaction",
+        updateToolbarState
+    );
+
+    updateToolbarState();
+
+    return {
+        destroy() {
+            editor.off(
+                "selectionUpdate",
+                updateToolbarState
+            );
+
+            editor.off(
+                "transaction",
+                updateToolbarState
+            );
+
+            listeners.forEach(remove => remove());
+        }
+    };
+}
+
+
+// ============================================================
+// FIND ACTIVE SCENE
+// ============================================================
+
+function getActiveScene(editor) {
+    const { $from } = editor.state.selection;
+
+    for (
+        let depth = $from.depth;
+        depth >= 0;
+        depth--
+    ) {
+        const node = $from.node(depth);
+
+        if (node.type.name === "manuscriptScene") {
+            return {
+                chapterId: node.attrs.chapterId,
+                sceneId: node.attrs.sceneId
+            };
+        }
+    }
+
+    return null;
 }
 
 
@@ -244,13 +429,20 @@ export function renderMultiEditor(
         onBack = () => {}
     } = {}
 ) {
-    const instances = [];
+    const allChapters = project.chapters || [];
 
     const chapters = mode === "chapter"
-        ? project.chapters.filter(
+        ? allChapters.filter(
             chapter => chapter.id === chapterId
         )
-        : project.chapters;
+        : allChapters;
+
+    const chapterNumbers = new Map(
+        allChapters.map((chapter, index) => [
+            chapter.id,
+            index + 1
+        ])
+    );
 
     const currentChapter = chapters[0];
 
@@ -267,9 +459,6 @@ export function renderMultiEditor(
             container-fluid py-4 px-3 px-lg-4
             storyforge-multi-editor
         ">
-
-            <!-- EDITOR HEADER -->
-
             <div class="
                 d-flex justify-content-between
                 align-items-center mb-4 gap-3
@@ -280,11 +469,9 @@ export function renderMultiEditor(
                     </h2>
 
                     <p class="text-muted mb-0">
-                        ${
-                            mode === "book"
-                                ? "Book Editor"
-                                : "Chapter Editor"
-                        }
+                        ${mode === "book"
+                            ? "Book Editor"
+                            : "Chapter Editor"}
                     </p>
                 </div>
 
@@ -296,8 +483,6 @@ export function renderMultiEditor(
                     Back
                 </button>
             </div>
-
-            <!-- MOBILE NAVIGATION TOGGLE -->
 
             <button
                 type="button"
@@ -312,12 +497,7 @@ export function renderMultiEditor(
                 ☰ Manuscript Navigation
             </button>
 
-            <!-- MAIN LAYOUT -->
-
             <div class="row g-4">
-
-                <!-- MANUSCRIPT OUTLINE -->
-
                 <aside
                     class="col-12 col-lg-3 d-none d-lg-block"
                     id="multi-editor-sidebar"
@@ -328,18 +508,37 @@ export function renderMultiEditor(
                     ></div>
                 </aside>
 
-                <!-- EDITABLE MANUSCRIPT -->
-
                 <main class="col-12 col-lg-9">
-                    <div id="multi-editor-content"></div>
-                </main>
+                    <div id="multi-editor-toolbar"></div>
 
+                    <div class="storyforge-manuscript-paper">
+                        <div id="multi-editor-content"></div>
+                    </div>
+
+                    <div class="
+                        d-flex justify-content-end
+                        align-items-center mt-3
+                    ">
+                        <span
+                            id="multi-editor-save-status"
+                            class="small text-muted"
+                            role="status"
+                            aria-live="polite"
+                        >
+                            Saved
+                        </span>
+                    </div>
+                </main>
             </div>
         </div>
     `;
 
     const content = container.querySelector(
         "#multi-editor-content"
+    );
+
+    const toolbarContainer = container.querySelector(
+        "#multi-editor-toolbar"
     );
 
     const sidebar = container.querySelector(
@@ -354,128 +553,331 @@ export function renderMultiEditor(
         "#toggle-manuscript-outline"
     );
 
+    const saveStatus = container.querySelector(
+        "#multi-editor-save-status"
+    );
+
+    const backButton = container.querySelector(
+        "#back-from-multi-editor"
+    );
+
     // --------------------------------------------------------
-    // BUILD MANUSCRIPT
+    // SAVING
     // --------------------------------------------------------
 
-    for (const chapter of chapters) {
-        const chapterSection =
-            document.createElement("section");
+    const pendingScenes = new Map();
 
-        chapterSection.className =
-            "storyforge-editable-chapter mb-5";
+    let saveTimeout = null;
+    let destroyed = false;
+    let saving = false;
 
-        chapterSection.dataset.chapterId = chapter.id;
+    function sceneKey(chapterId, sceneId) {
+        return JSON.stringify([
+            chapterId,
+            sceneId
+        ]);
+    }
 
-        const chapterHeading =
-            document.createElement("h3");
+    function setSaveStatus(message, isError = false) {
+        saveStatus.textContent = message;
 
-        chapterHeading.className =
-            "text-center mb-4";
+        saveStatus.classList.toggle(
+            "text-danger",
+            isError
+        );
+    }
 
-        chapterHeading.textContent =
-            chapter.title || "Untitled Chapter";
-
-        chapterSection.appendChild(chapterHeading);
-
-        const scenes = chapter.scenes || [];
-
-        if (scenes.length === 0) {
-            const emptyMessage =
-                document.createElement("p");
-
-            emptyMessage.className =
-                "text-muted text-center";
-
-            emptyMessage.textContent =
-                "No scenes in this chapter yet.";
-
-            chapterSection.appendChild(emptyMessage);
+    function savePendingScenes() {
+        if (
+            saving ||
+            pendingScenes.size === 0
+        ) {
+            return;
         }
 
-        scenes.forEach(scene => {
-            // Scene separators are display-only.
-            // They are never saved into scene content.
-            if (chapterSection.querySelector(
-                ".storyforge-editable-scene"
-            )) {
-                const separator =
-                    document.createElement("div");
+        saving = true;
+        setSaveStatus("Saving...");
 
-                separator.className =
-                    "text-center my-4 storyforge-scene-separator";
+        try {
+            for (const [key, scene] of pendingScenes) {
+                const saved = updateSceneContent(
+                    project.id,
+                    scene.chapterId,
+                    scene.sceneId,
+                    scene.html
+                );
 
-                separator.textContent = "* * *";
+                if (saved === false) {
+                    throw new Error(
+                        `Could not save scene ${scene.sceneId}`
+                    );
+                }
 
-                chapterSection.appendChild(separator);
+                if (pendingScenes.get(key) === scene) {
+                    pendingScenes.delete(key);
+                }
             }
 
-            const sceneSection = createSceneSection({
-                projectId: project.id,
-                chapter,
-                scene,
-                instances
-            });
+            setSaveStatus(
+                pendingScenes.size === 0
+                    ? "Saved"
+                    : "Unsaved changes"
+            );
+        } catch (error) {
+            console.error(
+                "StoryForge manuscript save failed:",
+                error
+            );
 
-            chapterSection.appendChild(sceneSection);
-        });
+            setSaveStatus(
+                "Save failed",
+                true
+            );
 
-        content.appendChild(chapterSection);
+            throw error;
+        } finally {
+            saving = false;
+        }
+    }
+
+    function scheduleSave() {
+        clearTimeout(saveTimeout);
+
+        saveTimeout = setTimeout(() => {
+            saveTimeout = null;
+
+            try {
+                savePendingScenes();
+            } catch {
+                // Keep changes queued for another attempt.
+            }
+        }, 1000);
+    }
+
+    function queueChangedScenes(changedScenes) {
+        for (const scene of changedScenes) {
+            const key = sceneKey(
+                scene.chapterId,
+                scene.sceneId
+            );
+
+            pendingScenes.set(key, scene);
+        }
+
+        if (changedScenes.length > 0) {
+            setSaveStatus("Unsaved changes");
+            scheduleSave();
+        }
     }
 
     // --------------------------------------------------------
-    // SCROLL NAVIGATION
+    // CREATE CONTINUOUS EDITOR
     // --------------------------------------------------------
 
-    function scrollToSection({
-        type,
-        chapterId: targetChapterId,
-        sceneId: targetSceneId
-    }) {
-        const chapterSection = Array.from(
+    let continuousInstance = null;
+
+    if (chapters.length > 0) {
+        continuousInstance = createContinuousEditor({
+            element: content,
+            chapters,
+            chapterNumbers,
+
+            onUpdate({ changedScenes }) {
+                queueChangedScenes(changedScenes);
+            }
+        });
+    } else {
+        content.innerHTML = `
+            <p class="text-muted text-center">
+                No chapters available to edit.
+            </p>
+        `;
+    }
+
+    const editor = continuousInstance?.editor || null;
+
+    // --------------------------------------------------------
+    // SHARED TOOLBAR
+    // --------------------------------------------------------
+
+    let toolbarConnection = null;
+
+    if (editor) {
+        const toolbar = createToolbar();
+
+        toolbarContainer.appendChild(toolbar);
+
+        toolbarConnection = connectToolbar(
+            toolbar,
+            editor
+        );
+    }
+
+    // --------------------------------------------------------
+    // MANUSCRIPT NAVIGATION
+    // --------------------------------------------------------
+
+    function findChapterElement(targetChapterId) {
+        return Array.from(
             content.querySelectorAll(
-                ".storyforge-editable-chapter"
+                "[data-manuscript-chapter]"
             )
         ).find(
             element =>
-                element.dataset.chapterId === targetChapterId
-        );
+                element.dataset.chapterId ===
+                targetChapterId
+        ) || null;
+    }
 
-        if (!chapterSection) return;
+    function findSceneElement(
+        targetChapterId,
+        targetSceneId
+    ) {
+        return Array.from(
+            content.querySelectorAll(
+                "[data-manuscript-scene]"
+            )
+        ).find(
+            element =>
+                element.dataset.chapterId ===
+                    targetChapterId &&
+                element.dataset.sceneId ===
+                    targetSceneId
+        ) || null;
+    }
 
-        let target = chapterSection;
+    /*
+     * Resolve a navigation target using both:
+     *
+     * 1. TipTap document position
+     * 2. Rendered HTML element
+     *
+     * Document positions provide an independent way
+     * to find chapters and scenes if a selector fails.
+     */
 
-        if (type === "scene") {
-            target = Array.from(
-                chapterSection.querySelectorAll(
-                    ".storyforge-editable-scene"
-                )
-            ).find(
-                element =>
-                    element.dataset.sceneId === targetSceneId
-            );
-
-            if (!target) return;
+    function findNavigationPosition(selection) {
+        if (!continuousInstance) {
+            return null;
         }
 
-        target.scrollIntoView({
-            behavior: "smooth",
-            block: "start"
-        });
+        if (selection.type === "scene") {
+            return continuousInstance.findScenePosition(
+                selection.chapterId,
+                selection.sceneId
+            );
+        }
 
-        // Close the navigation panel on mobile.
+        return continuousInstance.findChapterPosition(
+            selection.chapterId
+        );
+    }
+
+    function findNavigationElement(selection) {
+        if (selection.type === "scene") {
+            return findSceneElement(
+                selection.chapterId,
+                selection.sceneId
+            );
+        }
+
+        return findChapterElement(
+            selection.chapterId
+        );
+    }
+
+    function scrollToSection(selection) {
+        if (
+            !editor ||
+            editor.isDestroyed ||
+            !selection
+        ) {
+            return;
+        }
+
+        const position =
+            findNavigationPosition(selection);
+
+        const target =
+            findNavigationElement(selection);
+
+        if (position === null && !target) {
+            console.warn(
+                "StoryForge: Navigation target not found.",
+                selection
+            );
+
+            return;
+        }
+
+        /*
+         * Scroll to the rendered section if possible.
+         *
+         * Otherwise, use TipTap's document position
+         * to calculate its screen coordinates.
+         */
+
+        if (target) {
+            target.scrollIntoView({
+                behavior: "smooth",
+                block: "start"
+            });
+        } else if (position !== null) {
+            try {
+                const coords = editor.view.coordsAtPos(
+                    Math.min(
+                        position + 1,
+                        editor.state.doc.content.size
+                    )
+                );
+
+                const scrollTop =
+                    window.scrollY +
+                    coords.top -
+                    100;
+
+                window.scrollTo({
+                    top: Math.max(0, scrollTop),
+                    behavior: "smooth"
+                });
+            } catch (error) {
+                console.warn(
+                    "StoryForge: Could not scroll to section.",
+                    error
+                );
+            }
+        }
+
+        /*
+         * Highlight the clicked outline item.
+         *
+         * We deliberately don't force editor focus:
+         * sidebar navigation should not move the
+         * author's text cursor unnecessarily.
+         */
+
+        if (selection.type === "scene") {
+            outline.setActiveScene(
+                selection.chapterId,
+                selection.sceneId
+            );
+        } else {
+            outline.setActiveChapter(
+                selection.chapterId
+            );
+        }
+
+        // Close the mobile outline after navigation.
+
         if (window.innerWidth < 992) {
             sidebar.classList.add("d-none");
+
             mobileToggle.setAttribute(
                 "aria-expanded",
                 "false"
             );
         }
     }
-
-    // --------------------------------------------------------
-    // INITIALISE MANUSCRIPT OUTLINE
-    // --------------------------------------------------------
 
     const outline = renderManuscriptOutline(
         outlineContainer,
@@ -490,7 +892,42 @@ export function renderMultiEditor(
         }
     );
 
-    // Highlight the first scene initially.
+    // --------------------------------------------------------
+    // ACTIVE SCENE HIGHLIGHTING
+    // --------------------------------------------------------
+
+    function updateActiveScene() {
+        if (
+            !editor ||
+            editor.isDestroyed
+        ) {
+            return;
+        }
+
+        const active = getActiveScene(editor);
+
+        if (!active) {
+            return;
+        }
+
+        outline.setActiveScene(
+            active.chapterId,
+            active.sceneId
+        );
+    }
+
+    if (editor) {
+        editor.on(
+            "selectionUpdate",
+            updateActiveScene
+        );
+
+        editor.on(
+            "focus",
+            updateActiveScene
+        );
+    }
+
     const firstChapterWithScenes = chapters.find(
         chapter => chapter.scenes?.length > 0
     );
@@ -500,41 +937,14 @@ export function renderMultiEditor(
             firstChapterWithScenes.id,
             firstChapterWithScenes.scenes[0].id
         );
-    }
-
-    // --------------------------------------------------------
-    // ACTIVE SCENE WHEN EDITING
-    // --------------------------------------------------------
-
-    /*
-     * When the author focuses a scene editor,
-     * update the sidebar selection.
-     *
-     * Event delegation avoids adding one listener
-     * to every individual scene section.
-     */
-    function handleEditorFocus(event) {
-        const sceneSection = event.target.closest(
-            ".storyforge-editable-scene"
-        );
-
-        if (!sceneSection || !content.contains(sceneSection)) {
-            return;
-        }
-
-        outline.setActiveScene(
-            sceneSection.dataset.chapterId,
-            sceneSection.dataset.sceneId
+    } else if (chapters.length > 0) {
+        outline.setActiveChapter(
+            chapters[0].id
         );
     }
 
-    content.addEventListener(
-        "focusin",
-        handleEditorFocus
-    );
-
     // --------------------------------------------------------
-    // MOBILE SIDEBAR
+    // MOBILE NAVIGATION
     // --------------------------------------------------------
 
     function toggleMobileOutline() {
@@ -542,7 +952,10 @@ export function renderMultiEditor(
             "d-none"
         );
 
-        sidebar.classList.toggle("d-none", !isHidden);
+        sidebar.classList.toggle(
+            "d-none",
+            !isHidden
+        );
 
         mobileToggle.setAttribute(
             "aria-expanded",
@@ -559,26 +972,53 @@ export function renderMultiEditor(
     // CLEANUP
     // --------------------------------------------------------
 
-    let destroyed = false;
-
     function destroy() {
-        if (destroyed) return;
-
-        // Save pending changes before removing listeners.
-        for (const instance of instances) {
-            instance.destroy();
+        if (destroyed) {
+            return;
         }
 
-        outline.destroy();
+        clearTimeout(saveTimeout);
+        saveTimeout = null;
 
-        content.removeEventListener(
-            "focusin",
-            handleEditorFocus
-        );
+        /*
+         * Preserve pending changes before leaving.
+         *
+         * If saving fails, do not destroy the editor.
+         */
+
+        savePendingScenes();
+
+        if (pendingScenes.size > 0) {
+            throw new Error(
+                "Manuscript has unsaved changes."
+            );
+        }
+
+        if (editor) {
+            editor.off(
+                "selectionUpdate",
+                updateActiveScene
+            );
+
+            editor.off(
+                "focus",
+                updateActiveScene
+            );
+        }
+
+        toolbarConnection?.destroy();
+        continuousInstance?.destroy();
+
+        outline.destroy();
 
         mobileToggle.removeEventListener(
             "click",
             toggleMobileOutline
+        );
+
+        backButton.removeEventListener(
+            "click",
+            handleBack
         );
 
         destroyed = true;
@@ -588,23 +1028,27 @@ export function renderMultiEditor(
     // BACK NAVIGATION
     // --------------------------------------------------------
 
-    container.querySelector("#back-from-multi-editor")
-        .addEventListener("click", () => {
-            try {
-                destroy();
-                onBack();
-            } catch (error) {
-                console.error(
-                    "Editor save failed:",
-                    error
-                );
+    function handleBack() {
+        try {
+            destroy();
+            onBack();
+        } catch (error) {
+            console.error(
+                "StoryForge editor navigation blocked:",
+                error
+            );
 
-                window.alert(
-                    "A scene could not be saved. " +
-                    "Please check the console before leaving."
-                );
-            }
-        });
+            window.alert(
+                "Your manuscript has unsaved changes. " +
+                "Please check the console before leaving."
+            );
+        }
+    }
+
+    backButton.addEventListener(
+        "click",
+        handleBack
+    );
 
     return {
         destroy

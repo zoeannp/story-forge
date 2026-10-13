@@ -4,21 +4,24 @@
  *
  * One TipTap instance for an entire chapter or book.
  *
- * This stage:
- * - Preserves supported rich-text formatting
- * - Keeps chapter and scene IDs
- * - Displays a continuous manuscript
- * - Supports editing within scenes
- * - Prevents edits from crossing scene boundaries
+ * Features:
+ * - Continuous rich-text editing
+ * - Preserves chapter and scene identities
+ * - Protects chapter/scene boundaries
+ * - Detects changed scenes
+ * - Supports per-scene autosaving
+ * - Displays chapter numbers, headings and POV markers
  *
- * Saving is deliberately not enabled yet.
+ * Manuscript headings and POV markers are display-only.
+ * They are never included in saved scene HTML.
  */
 
 import { Editor, Node } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
-import { generateJSON } from "@tiptap/html";
-import { Plugin } from "@tiptap/pm/state";
+import { generateJSON, generateHTML } from "@tiptap/html";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
 import { ParagraphFormatting } from "./editorExtensions.js";
 
@@ -36,8 +39,23 @@ const ManuscriptChapter = Node.create({
 
     addAttributes() {
         return {
-            chapterId: { default: null },
-            title: { default: "" }
+            chapterId: {
+                default: null,
+                parseHTML: element =>
+                    element.getAttribute("data-chapter-id"),
+                renderHTML: attributes => ({
+                    "data-chapter-id": attributes.chapterId
+                })
+            },
+
+            title: {
+                default: "",
+                parseHTML: element =>
+                    element.getAttribute("data-chapter-title") || "",
+                renderHTML: attributes => ({
+                    "data-chapter-title": attributes.title
+                })
+            }
         };
     },
 
@@ -75,8 +93,23 @@ const ManuscriptScene = Node.create({
 
     addAttributes() {
         return {
-            chapterId: { default: null },
-            sceneId: { default: null }
+            chapterId: {
+                default: null,
+                parseHTML: element =>
+                    element.getAttribute("data-chapter-id"),
+                renderHTML: attributes => ({
+                    "data-chapter-id": attributes.chapterId
+                })
+            },
+
+            sceneId: {
+                default: null,
+                parseHTML: element =>
+                    element.getAttribute("data-scene-id"),
+                renderHTML: attributes => ({
+                    "data-scene-id": attributes.sceneId
+                })
+            }
         };
     },
 
@@ -102,16 +135,371 @@ const ManuscriptScene = Node.create({
 
 
 // ============================================================
-// EDITING BOUNDARY PROTECTION
+// SCENE IDENTIFICATION
 // ============================================================
 
-/*
- * Reject transactions that alter the manuscript's
- * chapter/scene structure or change multiple scenes.
- *
- * This is a conservative first version. It prioritises
- * protecting the manuscript over cross-scene editing.
- */
+function getSceneKey(chapterId, sceneId) {
+    return JSON.stringify([chapterId, sceneId]);
+}
+
+
+// ============================================================
+// CHAPTER NUMBER FORMATTING
+// ============================================================
+
+function numberToWords(number) {
+    const ones = [
+        "",
+        "One",
+        "Two",
+        "Three",
+        "Four",
+        "Five",
+        "Six",
+        "Seven",
+        "Eight",
+        "Nine",
+        "Ten",
+        "Eleven",
+        "Twelve",
+        "Thirteen",
+        "Fourteen",
+        "Fifteen",
+        "Sixteen",
+        "Seventeen",
+        "Eighteen",
+        "Nineteen"
+    ];
+
+    const tens = [
+        "",
+        "",
+        "Twenty",
+        "Thirty",
+        "Forty",
+        "Fifty",
+        "Sixty",
+        "Seventy",
+        "Eighty",
+        "Ninety"
+    ];
+
+    if (number < 20) {
+        return ones[number];
+    }
+
+    if (number < 100) {
+        const remainder = number % 10;
+
+        return (
+            tens[Math.floor(number / 10)] +
+            (remainder ? `-${ones[remainder]}` : "")
+        );
+    }
+
+    if (number < 1000) {
+        const hundreds = Math.floor(number / 100);
+        const remainder = number % 100;
+
+        return (
+            `${ones[hundreds]} Hundred` +
+            (remainder ? ` ${numberToWords(remainder)}` : "")
+        );
+    }
+
+    return String(number);
+}
+
+function formatChapterNumber(number, style) {
+    if (style === "numeric") {
+        return `CHAPTER ${number}`;
+    }
+
+    return `CHAPTER ${numberToWords(number).toUpperCase()}`;
+}
+
+
+// ============================================================
+// CHAPTER HEADING SETTINGS
+// ============================================================
+
+function getChapterHeading(chapter, chapterNumber) {
+    const heading = {
+        showNumber: true,
+        numberStyle: "words",
+        showTitle: true,
+        customTitle: "",
+        layout: "stacked",
+        ...(chapter.heading || {})
+    };
+
+    const numberText = heading.showNumber
+        ? formatChapterNumber(
+            chapterNumber,
+            heading.numberStyle
+        )
+        : "";
+
+    let titleText =
+        heading.customTitle?.trim() ||
+        chapter.title?.trim() ||
+        "";
+
+    /*
+     * Avoid displaying a generic title twice:
+     *
+     * CHAPTER ONE
+     * Chapter One
+     */
+
+    const isGenericChapterTitle =
+        /^chapter\s+([0-9]+|[a-z]+(?:[-\s][a-z]+)*)$/i
+            .test(titleText);
+
+    if (isGenericChapterTitle && numberText) {
+        titleText = "";
+    }
+
+    if (!heading.showTitle) {
+        titleText = "";
+    }
+
+    return {
+        numberText,
+        titleText,
+        layout: heading.layout
+    };
+}
+
+
+// ============================================================
+// DISPLAY-ONLY ELEMENTS
+// ============================================================
+
+function createDisplayElement(className, value) {
+    const element = document.createElement("div");
+
+    element.className = className;
+    element.textContent = value;
+    element.contentEditable = "false";
+
+    return element;
+}
+
+function createChapterHeadingElement(
+    chapter,
+    chapterNumber
+) {
+    const heading = getChapterHeading(
+        chapter,
+        chapterNumber
+    );
+
+    const pov = {
+        character: "",
+        showMarker: false,
+        ...(chapter.pov || {})
+    };
+
+    const container = document.createElement("div");
+
+    container.className =
+        "storyforge-manuscript-chapter-heading";
+
+    container.contentEditable = "false";
+
+    if (heading.layout === "inline") {
+        const combined = [
+            heading.numberText,
+            heading.titleText
+        ].filter(Boolean).join(": ");
+
+        if (combined) {
+            container.appendChild(
+                createDisplayElement(
+                    "storyforge-chapter-heading-inline",
+                    combined
+                )
+            );
+        }
+    } else {
+        if (heading.numberText) {
+            container.appendChild(
+                createDisplayElement(
+                    "storyforge-chapter-number",
+                    heading.numberText
+                )
+            );
+        }
+
+        if (heading.titleText) {
+            container.appendChild(
+                createDisplayElement(
+                    "storyforge-chapter-title",
+                    heading.titleText
+                )
+            );
+        }
+    }
+
+    if (pov.showMarker && pov.character?.trim()) {
+        container.appendChild(
+            createDisplayElement(
+                "storyforge-chapter-pov",
+                pov.character.trim()
+            )
+        );
+    }
+
+    return container;
+}
+
+function createScenePOVElement(scene) {
+    const pov = {
+        character: "",
+        showMarker: false,
+        ...(scene.pov || {})
+    };
+
+    if (!pov.showMarker || !pov.character?.trim()) {
+        return null;
+    }
+
+    return createDisplayElement(
+        "storyforge-scene-pov",
+        pov.character.trim()
+    );
+}
+
+
+// ============================================================
+// MANUSCRIPT DISPLAY DECORATIONS
+// ============================================================
+
+function createManuscriptDecorations(
+    chapters,
+    chapterNumbers
+) {
+    const chapterLookup = new Map();
+    const sceneLookup = new Map();
+
+    chapters.forEach((chapter, index) => {
+        chapterLookup.set(chapter.id, {
+            chapter,
+            number: chapterNumbers.get(chapter.id) ?? index + 1
+        });
+
+        (chapter.scenes || []).forEach(scene => {
+            sceneLookup.set(
+                getSceneKey(chapter.id, scene.id),
+                scene
+            );
+        });
+    });
+
+    return new Plugin({
+        key: new PluginKey("storyforgeManuscriptDisplay"),
+
+        props: {
+            decorations(state) {
+                const decorations = [];
+
+                state.doc.forEach((chapterNode, chapterPos) => {
+                    if (
+                        chapterNode.type.name !==
+                        "manuscriptChapter"
+                    ) {
+                        return;
+                    }
+
+                    const info = chapterLookup.get(
+                        chapterNode.attrs.chapterId
+                    );
+
+                    if (!info) {
+                        return;
+                    }
+
+                    const heading =
+                        createChapterHeadingElement(
+                            info.chapter,
+                            info.number
+                        );
+
+                    if (heading.childNodes.length > 0) {
+                        decorations.push(
+                            Decoration.widget(
+                                chapterPos + 1,
+                                heading,
+                                {
+                                    side: -1,
+                                    key:
+                                        `chapter-heading-${chapterNode.attrs.chapterId}`
+                                }
+                            )
+                        );
+                    }
+
+                    chapterNode.forEach(
+                        (sceneNode, sceneOffset) => {
+                            if (
+                                sceneNode.type.name !==
+                                "manuscriptScene"
+                            ) {
+                                return;
+                            }
+
+                            const key = getSceneKey(
+                                chapterNode.attrs.chapterId,
+                                sceneNode.attrs.sceneId
+                            );
+
+                            const scene = sceneLookup.get(key);
+
+                            if (!scene) {
+                                return;
+                            }
+
+                            const marker =
+                                createScenePOVElement(scene);
+
+                            if (!marker) {
+                                return;
+                            }
+
+                            const position =
+                                chapterPos +
+                                1 +
+                                sceneOffset +
+                                1;
+
+                            decorations.push(
+                                Decoration.widget(
+                                    position,
+                                    marker,
+                                    {
+                                        side: -1,
+                                        key: `scene-pov-${key}`
+                                    }
+                                )
+                            );
+                        }
+                    );
+                });
+
+                return DecorationSet.create(
+                    state.doc,
+                    decorations
+                );
+            }
+        }
+    });
+}
+
+
+// ============================================================
+// MANUSCRIPT STRUCTURE
+// ============================================================
 
 function getStructure(doc) {
     const chapters = [];
@@ -135,13 +523,23 @@ function getStructure(doc) {
     return chapters;
 }
 
+
+// ============================================================
+// SCENE CONTENT COLLECTION
+// ============================================================
+
 function getSceneContents(doc) {
     const scenes = new Map();
 
     doc.forEach(chapter => {
         chapter.forEach(scene => {
+            const key = getSceneKey(
+                chapter.attrs.chapterId,
+                scene.attrs.sceneId
+            );
+
             scenes.set(
-                `${chapter.attrs.chapterId}:${scene.attrs.sceneId}`,
+                key,
                 scene.content.toJSON()
             );
         });
@@ -150,6 +548,11 @@ function getSceneContents(doc) {
     return scenes;
 }
 
+
+// ============================================================
+// EDITING BOUNDARY PROTECTION
+// ============================================================
+
 function createBoundaryProtection() {
     return new Plugin({
         filterTransaction(transaction, state) {
@@ -157,34 +560,49 @@ function createBoundaryProtection() {
                 return true;
             }
 
-            const before = getStructure(state.doc);
-            const after = getStructure(transaction.doc);
+            const beforeStructure = getStructure(state.doc);
+            const afterStructure = getStructure(
+                transaction.doc
+            );
 
-            if (JSON.stringify(before) !== JSON.stringify(after)) {
+            if (
+                JSON.stringify(beforeStructure) !==
+                JSON.stringify(afterStructure)
+            ) {
                 return false;
             }
 
-            const previousContents = getSceneContents(state.doc);
-            const nextContents = getSceneContents(transaction.doc);
+            const previousContents =
+                getSceneContents(state.doc);
+
+            const nextContents =
+                getSceneContents(transaction.doc);
 
             let changedScenes = 0;
 
-            for (const [id, content] of previousContents) {
-                const next = nextContents.get(id);
+            for (const [key, previousContent] of previousContents) {
+                const nextContent = nextContents.get(key);
 
-                if (JSON.stringify(content) !== JSON.stringify(next)) {
+                if (
+                    JSON.stringify(previousContent) !==
+                    JSON.stringify(nextContent)
+                ) {
                     changedScenes += 1;
+                }
+
+                if (changedScenes > 1) {
+                    return false;
                 }
             }
 
-            return changedScenes <= 1;
+            return true;
         }
     });
 }
 
 
 // ============================================================
-// DOCUMENT CONSTRUCTION
+// SCENE HTML PARSING
 // ============================================================
 
 function parseSceneHTML(html, extensions) {
@@ -197,6 +615,11 @@ function parseSceneHTML(html, extensions) {
         ? parsed.content
         : [{ type: "paragraph" }];
 }
+
+
+// ============================================================
+// BUILD CONTINUOUS DOCUMENT
+// ============================================================
 
 function buildManuscriptDocument(chapters, extensions) {
     return {
@@ -229,12 +652,152 @@ function buildManuscriptDocument(chapters, extensions) {
 
 
 // ============================================================
+// EXTRACT SCENE HTML
+// ============================================================
+
+function sceneContentToHTML(sceneNode, extensions) {
+    return generateHTML(
+        {
+            type: "doc",
+            content: sceneNode.content.toJSON()
+        },
+        extensions
+    );
+}
+
+
+// ============================================================
+// EXTRACT ALL SCENES
+// ============================================================
+
+function extractScenes(doc, extensions) {
+    const scenes = [];
+
+    doc.forEach(chapter => {
+        chapter.forEach(scene => {
+            scenes.push({
+                chapterId: chapter.attrs.chapterId,
+                sceneId: scene.attrs.sceneId,
+
+                html: sceneContentToHTML(
+                    scene,
+                    extensions
+                )
+            });
+        });
+    });
+
+    return scenes;
+}
+
+
+// ============================================================
+// FIND CHANGED SCENES
+// ============================================================
+
+function findChangedScenes(
+    previousDoc,
+    currentDoc,
+    extensions
+) {
+    const previousContents =
+        getSceneContents(previousDoc);
+
+    const changedScenes = [];
+
+    currentDoc.forEach(chapter => {
+        chapter.forEach(scene => {
+            const chapterId = chapter.attrs.chapterId;
+            const sceneId = scene.attrs.sceneId;
+
+            const key = getSceneKey(
+                chapterId,
+                sceneId
+            );
+
+            const previousContent =
+                previousContents.get(key);
+
+            const currentContent =
+                scene.content.toJSON();
+
+            if (
+                JSON.stringify(previousContent) !==
+                JSON.stringify(currentContent)
+            ) {
+                changedScenes.push({
+                    chapterId,
+                    sceneId,
+
+                    html: sceneContentToHTML(
+                        scene,
+                        extensions
+                    )
+                });
+            }
+        });
+    });
+
+    return changedScenes;
+}
+
+
+// ============================================================
+// FIND DOCUMENT POSITIONS
+// ============================================================
+
+/*
+ * Navigation uses TipTap document positions rather than
+ * depending entirely on HTML selectors.
+ */
+
+function findSectionPosition(
+    doc,
+    targetChapterId,
+    targetSceneId = null
+) {
+    let result = null;
+
+    doc.forEach((chapterNode, chapterPos) => {
+        if (result !== null) return;
+
+        if (
+            chapterNode.attrs.chapterId !==
+            targetChapterId
+        ) {
+            return;
+        }
+
+        if (!targetSceneId) {
+            result = chapterPos;
+            return;
+        }
+
+        chapterNode.forEach((sceneNode, sceneOffset) => {
+            if (result !== null) return;
+
+            if (
+                sceneNode.attrs.sceneId ===
+                targetSceneId
+            ) {
+                result =
+                    chapterPos + 1 + sceneOffset;
+            }
+        });
+    });
+
+    return result;
+}
+
+
+// ============================================================
 // CREATE CONTINUOUS EDITOR
 // ============================================================
 
 export function createContinuousEditor({
     element,
     chapters = [],
+    chapterNumbers = null,
     onUpdate = null
 }) {
     if (!element) {
@@ -245,6 +808,7 @@ export function createContinuousEditor({
 
     const extensions = [
         StarterKit,
+
         ManuscriptChapter,
         ManuscriptScene,
 
@@ -260,8 +824,18 @@ export function createContinuousEditor({
         extensions
     );
 
+    const numbers = chapterNumbers instanceof Map
+        ? chapterNumbers
+        : new Map(
+            chapters.map((chapter, index) => [
+                chapter.id,
+                index + 1
+            ])
+        );
+
     const editor = new Editor({
         element,
+
         extensions,
         content: documentJSON,
 
@@ -273,19 +847,81 @@ export function createContinuousEditor({
         }
     });
 
-    editor.registerPlugin(createBoundaryProtection());
+    editor.registerPlugin(
+        createBoundaryProtection()
+    );
 
-    if (typeof onUpdate === "function") {
-        editor.on("update", () => {
-            onUpdate(editor);
-        });
+    editor.registerPlugin(
+        createManuscriptDecorations(
+            chapters,
+            numbers
+        )
+    );
+
+    let previousDoc = editor.state.doc;
+
+    editor.on("update", () => {
+        const currentDoc = editor.state.doc;
+
+        const changedScenes = findChangedScenes(
+            previousDoc,
+            currentDoc,
+            extensions
+        );
+
+        previousDoc = currentDoc;
+
+        if (
+            changedScenes.length > 0 &&
+            typeof onUpdate === "function"
+        ) {
+            onUpdate({
+                editor,
+                changedScenes
+            });
+        }
+    });
+
+    // --------------------------------------------------------
+    // PUBLIC API
+    // --------------------------------------------------------
+
+    function getAllScenes() {
+        return extractScenes(
+            editor.state.doc,
+            extensions
+        );
+    }
+
+    function getCurrentDocument() {
+        return editor.getJSON();
+    }
+
+    function findChapterPosition(chapterId) {
+        return findSectionPosition(
+            editor.state.doc,
+            chapterId
+        );
+    }
+
+    function findScenePosition(chapterId, sceneId) {
+        return findSectionPosition(
+            editor.state.doc,
+            chapterId,
+            sceneId
+        );
+    }
+
+    function destroy() {
+        editor.destroy();
     }
 
     return {
         editor,
-
-        destroy() {
-            editor.destroy();
-        }
+        getAllScenes,
+        getCurrentDocument,
+        findChapterPosition,
+        findScenePosition,
+        destroy
     };
 }

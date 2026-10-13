@@ -1,205 +1,63 @@
-/* ============================================================
-   STORYFORGE
-   Main application styling
-   ============================================================ */
 
 /* ============================================================
-   STORYFORGE COLOUR PALETTE
+   STORYFORGE
+   Main Application Stylesheet
+   ============================================================ */
+
+
+/* ============================================================
+   1. COLOUR PALETTE
    ============================================================ */
 
 :root {
-
-    /* Main application background. */
     --sf-bg: #f7f7f4;
 
-    /* Cards, panels, sidebars, and secondary surfaces. */
     --sf-surface: #eef3f2;
-
-    /* Slightly stronger surface colour for hover states. */
     --sf-surface-hover: #e2ecea;
 
-    /* Primary StoryForge brand colour. */
     --sf-primary: #147c7a;
-
-    /* Darker primary used for stronger buttons and hover states. */
     --sf-primary-hover: #106866;
-
-    /* Bright accent used for focus, highlights, and active details. */
     --sf-accent: #27d9d3;
 
-    /* Deep teal used for headings and major visual anchors. */
     --sf-deep: #12383b;
-
-    /* Main interface text. */
     --sf-text: #162326;
-
-    /* Secondary and muted interface text. */
     --sf-text-muted: #607578;
 
-    /* Warm contrast accent. */
     --sf-copper: #a65b32;
-
-    /* Slightly darker copper for hover states. */
     --sf-copper-hover: #8e4c2a;
 
-    /* Borders and separators. */
     --sf-border: #ccd9d8;
-
-    /* Clean white surface used for the manuscript page. */
     --sf-white: #ffffff;
 
-    /* Destructive action colours. */
     --sf-danger: #a53b3b;
     --sf-danger-hover: #872f2f;
 
-    /* General corner rounding. */
     --sf-radius: 0.1rem;
-
-    /* Slightly smaller rounding for compact controls. */
     --sf-radius-small: 0.1rem;
 
-    /* Subtle interface shadow. */
     --sf-shadow:
-        0 0.4rem 1.2rem
-        rgba(18, 56, 59, 0.10);
+        0 0.4rem 1.2rem rgba(18, 56, 59, 0.10);
 
-    /* Slightly stronger shadow for floating menus. */
     --sf-shadow-strong:
-        0 0.7rem 1.8rem
-        rgba(18, 56, 59, 0.16);
+        0 0.7rem 1.8rem rgba(18, 56, 59, 0.16);
 }
+
 
 /* ============================================================
-   STORYFORGE NAVIGATION
-   ============================================================ */
-
-/*
- * Shared navigation bar shown across the application.
- */
-.storyforge-nav {
-
-    width: 100%;
-
-    background-color: #12383b;
-
-    border-bottom: 1px solid var(--sf-border);
-
-    box-shadow:
-        0 0.2rem 0.8rem
-        rgba(18, 56, 59, 0.07);
-}
-
-
-/*
- * The StoryForge logo acts as the Home / Dashboard button.
- *
- * Remove normal button styling so the logo itself remains
- * the focus of the navigation bar.
- */
-.storyforge-home {
-
-    display: inline-flex;
-
-    align-items: center;
-
-    padding: 0.6rem 0;
-
-    background: transparent;
-
-    border: 0;
-
-    cursor: pointer;
-}
-
-
-/*
- * Constrain the large original logo image to navbar size.
- *
- * Height controls the visual size while width remains automatic
- * so the image keeps its original proportions.
- */
-.storyforge-nav-logo {
-
-    display: block;
-
-    width: auto;
-
-    height: 60px;
-
-    max-width: 260px;
-
-    object-fit: contain;
-
-    transition:
-        transform 0.18s ease,
-        opacity 0.18s ease;
-}
-
-
-/*
- * Small hover response so the logo feels clickable.
- */
-.storyforge-home:hover .storyforge-nav-logo {
-
-    transform: scale(1.02);
-
-    opacity: 0.88;
-}
-
-
-/*
- * Clear keyboard focus indicator.
- */
-.storyforge-home:focus-visible {
-
-    outline:
-        3px solid
-        rgba(39, 217, 211, 0.55);
-
-    outline-offset: 4px;
-
-    border-radius: var(--sf-radius-small);
-}
-
-
-/*
- * Reduce the navbar logo further on narrow screens.
- */
-@media (max-width: 575.98px) {
-
-    .storyforge-nav-logo {
-
-        height: 48px;
-
-        max-width: 210px;
-    }
-}
-
-/* ============================================================
-   GLOBAL PAGE STYLES
+   2. GLOBAL PAGE STYLES
    ============================================================ */
 
 html,
 body {
-
     min-height: 100%;
 }
 
-
 body {
-
     margin: 0;
 
     background-color: var(--sf-bg);
-
     color: var(--sf-text);
 
-    /*
-     * Keep normal application text clean and readable.
-     *
-     * Cinzel is reserved for branding and headings so the
-     * whole application does not look like a rune stone.
-     */
     font-family:
         system-ui,
         -apple-system,
@@ -208,43 +66,35 @@ body {
         sans-serif;
 }
 
-
-/*
- * Ensure the StoryForge application fills the viewport.
- */
 #app {
-
     min-height: 100vh;
 }
 
+main {
+    min-width: 0;
+}
 
-/*
- * Make text selection feel part of the StoryForge palette.
- */
 ::selection {
-
     background-color: var(--sf-accent);
-
     color: var(--sf-deep);
 }
 
 
 /* ============================================================
-   TYPOGRAPHY
+   3. TYPOGRAPHY
    ============================================================ */
 
 /*
- * Cinzel is StoryForge's display font.
- *
- * Use it for headings, titles, and brand identity.
+ * Cinzel is reserved for interface headings.
+ * Manuscript headings receive their own font rules.
  */
+
 h1,
 h2,
 h3,
 h4,
 h5,
 h6 {
-
     color: var(--sf-deep);
 
     font-family:
@@ -254,79 +104,110 @@ h6 {
     font-weight: 700;
 }
 
-
-/*
- * Give top-level headings a little more character.
- */
 h1 {
-
     letter-spacing: 0.035em;
 }
 
-
-/*
- * Secondary text uses the Grey Teal palette colour.
- */
 .text-muted {
-
     color: var(--sf-text-muted) !important;
 }
 
-
-/*
- * Strong text should inherit StoryForge's main text colour.
- */
 strong {
-
     color: inherit;
 }
 
 
 /* ============================================================
-   LINKS
+   4. NAVIGATION
+   ============================================================ */
+
+.storyforge-nav {
+    width: 100%;
+
+    background-color: var(--sf-deep);
+
+    border-bottom: 1px solid var(--sf-border);
+
+    box-shadow:
+        0 0.2rem 0.8rem rgba(18, 56, 59, 0.07);
+}
+
+.storyforge-home {
+    display: inline-flex;
+    align-items: center;
+
+    padding: 0.6rem 0;
+
+    background: transparent;
+    border: 0;
+
+    cursor: pointer;
+}
+
+.storyforge-nav-logo {
+    display: block;
+
+    width: auto;
+    height: 60px;
+    max-width: 260px;
+
+    object-fit: contain;
+
+    transition:
+        transform 0.18s ease,
+        opacity 0.18s ease;
+}
+
+.storyforge-home:hover .storyforge-nav-logo {
+    transform: scale(1.02);
+    opacity: 0.88;
+}
+
+.storyforge-home:focus-visible {
+    outline: 3px solid rgba(39, 217, 211, 0.55);
+    outline-offset: 4px;
+
+    border-radius: var(--sf-radius-small);
+}
+
+
+/* ============================================================
+   5. LINKS
    ============================================================ */
 
 a {
-
     color: var(--sf-primary);
 
     text-decoration-color:
         rgba(20, 124, 122, 0.4);
 }
 
-
 a:hover {
-
     color: var(--sf-deep);
 }
 
 
 /* ============================================================
-   CARDS AND PANELS
+   6. CARDS AND PANELS
    ============================================================ */
 
 .card {
-
     background-color: var(--sf-surface);
-
     color: var(--sf-text);
 
     border: 1px solid var(--sf-border);
-
     border-radius: var(--sf-radius);
 
     box-shadow: var(--sf-shadow);
 }
 
+.card-title {
+    color: var(--sf-deep);
+}
 
-/*
- * Project, chapter, and scene cards contain their own
- * transparent navigation button.
- */
 .project-card,
 .chapter-card,
 .scene-card {
-
     color: var(--sf-text);
 
     transition:
@@ -334,63 +215,36 @@ a:hover {
         transform 0.18s ease;
 }
 
-
 .project-card:hover,
 .chapter-card:hover,
 .scene-card:hover {
-
     color: var(--sf-primary);
-
     transform: translateY(-1px);
 }
 
-
-/*
- * Highlight the parent card when its navigation area is hovered.
- *
- * Modern browsers support :has(), and it gives us a much cleaner
- * effect than colouring every card indiscriminately.
- */
 .card:has(.project-card:hover),
 .card:has(.chapter-card:hover),
 .card:has(.scene-card:hover) {
-
     background-color: var(--sf-surface-hover);
-
     border-color: var(--sf-primary);
 }
 
 
-/*
- * Keep headings inside cards clean.
- */
-.card-title {
-
-    color: var(--sf-deep);
-}
-
-
 /* ============================================================
-   FORMS
+   7. FORMS
    ============================================================ */
 
 .form-label {
-
     color: var(--sf-deep);
-
     font-weight: 600;
 }
 
-
 .form-control,
 .form-select {
-
     background-color: var(--sf-white);
-
     color: var(--sf-text);
 
     border: 1px solid var(--sf-border);
-
     border-radius: var(--sf-radius-small);
 
     transition:
@@ -398,63 +252,42 @@ a:hover {
         box-shadow 0.18s ease;
 }
 
-
 .form-control:hover,
 .form-select:hover {
-
     border-color: var(--sf-primary);
 }
 
-
 .form-control:focus,
 .form-select:focus {
-
     background-color: var(--sf-white);
-
     color: var(--sf-text);
 
     border-color: var(--sf-primary);
 
     box-shadow:
-        0 0 0 0.2rem
-        rgba(39, 217, 211, 0.22);
+        0 0 0 0.2rem rgba(39, 217, 211, 0.22);
 }
 
-
-/*
- * Keep placeholder text subtle.
- */
 .form-control::placeholder {
-
     color: var(--sf-text-muted);
-
     opacity: 0.7;
 }
 
-
-/*
- * Ensure select options remain readable.
- */
 .form-select option {
-
     background-color: var(--sf-white);
-
     color: var(--sf-text);
 }
 
 
 /* ============================================================
-   PRIMARY BUTTONS
+   8. PRIMARY BUTTONS
    ============================================================ */
 
 .btn-primary {
-
     background-color: var(--sf-primary);
-
     border-color: var(--sf-primary);
 
     color: var(--sf-white);
-
     font-weight: 600;
 
     border-radius: var(--sf-radius-small);
@@ -466,44 +299,33 @@ a:hover {
         transform 0.18s ease;
 }
 
-
 .btn-primary:hover,
 .btn-primary:focus {
-
     background-color: var(--sf-primary-hover);
-
     border-color: var(--sf-primary-hover);
 
     color: var(--sf-white);
 }
 
-
 .btn-primary:hover {
-
     transform: translateY(-1px);
 }
 
-
 .btn-primary:focus {
-
     box-shadow:
-        0 0 0 0.2rem
-        rgba(39, 217, 211, 0.28);
+        0 0 0 0.2rem rgba(39, 217, 211, 0.28);
 }
 
 
 /* ============================================================
-   SECONDARY BUTTONS
+   9. SECONDARY BUTTONS
    ============================================================ */
 
 .btn-outline-secondary {
-
     background-color: transparent;
-
     color: var(--sf-deep);
 
     border-color: var(--sf-border);
-
     border-radius: var(--sf-radius-small);
 
     transition:
@@ -512,65 +334,43 @@ a:hover {
         color 0.18s ease;
 }
 
-
 .btn-outline-secondary:hover {
-
     background-color: var(--sf-surface-hover);
-
     color: var(--sf-primary);
 
     border-color: var(--sf-primary);
 }
 
-
-/*
- * Active toolbar buttons use the main Nordic Teal.
- */
 .btn-outline-secondary.active {
-
     background-color: var(--sf-primary);
-
     color: var(--sf-white);
 
     border-color: var(--sf-primary);
 }
 
-
-/*
- * Disabled formatting buttons should remain visibly inactive.
- */
 .btn-outline-secondary:disabled {
-
     background-color: transparent;
-
     color: var(--sf-text-muted);
 
     border-color: var(--sf-border);
-
     opacity: 0.45;
 }
 
 
 /* ============================================================
-   DANGER BUTTONS
+   10. DANGER BUTTONS
    ============================================================ */
 
 .btn-outline-danger {
-
     background-color: transparent;
-
     color: var(--sf-danger);
 
     border-color: var(--sf-danger);
-
     border-radius: var(--sf-radius-small);
 }
 
-
 .btn-outline-danger:hover {
-
     background-color: var(--sf-danger-hover);
-
     color: var(--sf-white);
 
     border-color: var(--sf-danger-hover);
@@ -578,61 +378,39 @@ a:hover {
 
 
 /* ============================================================
-   HORIZONTAL RULES
+   11. HORIZONTAL RULES
    ============================================================ */
 
 hr {
-
     border-color: var(--sf-border);
-
     opacity: 1;
 }
 
 
 /* ============================================================
-   THREE-DOT ACTION MENUS
+   12. THREE-DOT ACTION MENUS
    ============================================================ */
 
-/*
- * Remove the browser's default disclosure arrow.
- */
 details > summary {
-
     list-style: none;
-
     cursor: pointer;
 }
 
-
 details > summary::-webkit-details-marker {
-
     display: none;
 }
 
-
-/*
- * Floating project, chapter, and scene action menu.
- */
 details > div {
-
     background-color: var(--sf-white) !important;
-
-    color: var(--sf-text);
+    color: var(--sf-text) !important;
 
     border-color: var(--sf-border) !important;
 
     box-shadow: var(--sf-shadow-strong) !important;
 }
 
-
-/*
- * Give the three-dot button a more deliberate appearance
- * while its menu is open.
- */
 details[open] > summary {
-
     background-color: var(--sf-surface-hover);
-
     color: var(--sf-primary);
 
     border-color: var(--sf-primary);
@@ -640,54 +418,31 @@ details[open] > summary {
 
 
 /* ============================================================
-   EDITOR LAYOUT
+   13. ORIGINAL SCENE EDITOR TOOLBAR
    ============================================================ */
 
 /*
- * Give the writing screen slightly more breathing room.
+ * Keep the original single-scene editor working.
  */
-main {
-
-    min-width: 0;
-}
-
-
-/* ============================================================
-   SCENE EDITOR TOOLBAR
-   ============================================================ */
 
 #scene-editor-toolbar {
-
     padding: 0.8rem;
 
     background-color: var(--sf-surface);
 
     border: 1px solid var(--sf-border);
-
     border-radius: var(--sf-radius);
 
     box-shadow:
-        0 0.2rem 0.7rem
-        rgba(18, 56, 59, 0.06);
+        0 0.2rem 0.7rem rgba(18, 56, 59, 0.06);
 }
 
-
-/*
- * Keep formatting controls compact.
- */
 #scene-editor-toolbar .btn {
-
     font-size: 0.9rem;
 }
 
-
-/*
- * Style the line spacing label.
- */
 #scene-editor-toolbar .input-group-text {
-
     background-color: var(--sf-deep);
-
     color: var(--sf-white);
 
     border-color: var(--sf-deep);
@@ -695,94 +450,54 @@ main {
     font-size: 0.9rem;
 }
 
-
-/*
- * Keep the toolbar select slightly smaller than main forms.
- */
 #scene-editor-toolbar .form-select {
-
     font-size: 0.9rem;
 }
 
 
 /* ============================================================
-   MANUSCRIPT EDITOR
+   14. ORIGINAL SINGLE-SCENE EDITOR
    ============================================================ */
 
-/*
- * The manuscript itself sits on a clean white page.
- *
- * This separates the writing surface from the warmer main
- * background and Cool Mist interface panels.
- */
 #scene-editor {
-
     min-height: 500px;
 
     padding: 2.75rem !important;
 
     background-color: var(--sf-white);
-
     color: var(--sf-text);
 
     border: 1px solid var(--sf-border);
-
     border-radius: var(--sf-radius);
 
     box-shadow:
-        0 0.6rem 2rem
-        rgba(18, 56, 59, 0.10);
+        0 0.6rem 2rem rgba(18, 56, 59, 0.10);
 
-    /*
-     * A traditional serif works better for long-form prose.
-     */
     font-family:
         Georgia,
         "Times New Roman",
         serif;
 
     font-size: 1.05rem;
-
     line-height: 1.6;
 }
 
-
-/*
- * TipTap places the actual editable document inside
- * this ProseMirror element.
- */
 #scene-editor .ProseMirror {
-
     min-height: 440px;
-
     outline: none;
 }
 
-
-/*
- * Comfortable paragraph spacing while drafting.
- */
 #scene-editor .ProseMirror p {
-
     margin-top: 0;
-
     margin-bottom: 0.8rem;
 }
 
-
-/*
- * Headings inside the manuscript belong to the manuscript,
- * not the StoryForge interface.
- *
- * Do not apply Cinzel inside the actual document.
- */
 #scene-editor h1,
 #scene-editor h2,
 #scene-editor h3,
 #scene-editor h4,
 #scene-editor h5,
 #scene-editor h6 {
-
     color: var(--sf-text);
 
     font-family:
@@ -793,90 +508,50 @@ main {
     letter-spacing: normal;
 }
 
-
-/*
- * Use a softer cyan selection colour inside the manuscript.
- */
 #scene-editor ::selection {
-
-    background-color:
-        rgba(39, 217, 211, 0.28);
-
+    background-color: rgba(39, 217, 211, 0.28);
     color: var(--sf-text);
 }
 
 
 /* ============================================================
-   AUTOSAVE AND WORD COUNT
+   15. SINGLE-SCENE AUTOSAVE AND WORD COUNT
    ============================================================ */
 
 #scene-save-status,
 #scene-word-count {
-
     font-size: 0.85rem;
-
     font-weight: 500;
 }
 
-
-/*
- * Autosave gets a tiny touch of Burnished Copper.
- *
- * This is deliberately subtle so copper remains an accent
- * instead of invading the entire application like plumbing.
- */
 #scene-save-status {
-
     color: var(--sf-copper) !important;
 }
 
-
-/*
- * Word count stays understated.
- */
 #scene-word-count {
-
     color: var(--sf-text-muted) !important;
 }
 
 
 /* ============================================================
-   DESKTOP EDITOR SIDEBAR
+   16. ORIGINAL EDITOR SIDEBAR
    ============================================================ */
 
-/*
- * Keep the chapter/scene navigation visible while writing
- * longer scenes.
- */
 #editor-sidebar .card {
-
     position: sticky;
-
     top: 1.5rem;
 
     max-height: calc(100vh - 3rem);
-
     overflow-y: auto;
 
     background-color: var(--sf-surface);
 }
 
-
-/*
- * Project title inside the sidebar.
- */
 #editor-sidebar h2 {
-
     color: var(--sf-deep);
 }
 
-
-/* ============================================================
-   SIDEBAR CHAPTERS
-   ============================================================ */
-
 .editor-sidebar-chapter {
-
     color: var(--sf-deep);
 
     border-radius: var(--sf-radius-small);
@@ -886,39 +561,18 @@ main {
         color 0.18s ease;
 }
 
-
 .editor-sidebar-chapter:hover {
-
     background-color: var(--sf-surface-hover);
-
     color: var(--sf-primary);
 }
 
-
-/*
- * The currently active chapter is already given Bootstrap's
- * fw-bold class by ui.js.
- *
- * Give it a subtle teal marker as well.
- */
 .editor-sidebar-chapter.fw-bold {
-
     color: var(--sf-primary);
-
-    border-left:
-        3px solid
-        var(--sf-accent);
+    border-left: 3px solid var(--sf-accent);
 }
-
-
-/* ============================================================
-   SIDEBAR SCENES
-   ============================================================ */
 
 .editor-sidebar-scene {
-
     background-color: transparent;
-
     color: var(--sf-text);
 
     border-color: var(--sf-border);
@@ -929,200 +583,43 @@ main {
         border-color 0.18s ease;
 }
 
-
 .editor-sidebar-scene:hover {
-
     background-color: var(--sf-surface-hover);
-
     color: var(--sf-deep);
 
     border-color: var(--sf-primary);
 }
 
-
-/*
- * Current scene.
- */
 .editor-sidebar-scene.active {
-
     background-color: var(--sf-primary);
-
     color: var(--sf-white);
 
     border-color: var(--sf-primary);
 
     box-shadow:
-        inset 4px 0 0
-        var(--sf-accent);
+        inset 4px 0 0 var(--sf-accent);
 }
 
-
-/*
- * Keep active-scene metadata readable.
- */
 .editor-sidebar-scene.active small {
-
-    color:
-        rgba(255, 255, 255, 0.78) !important;
+    color: rgba(255, 255, 255, 0.78) !important;
 }
 
 
 /* ============================================================
-   SCROLLBARS
+   17. MANUSCRIPT OUTLINE
    ============================================================ */
 
 /*
- * Subtle scrollbar styling for browsers that support
- * WebKit scrollbar selectors.
+ * Used by the Book Editor and Chapter Editor.
  */
-::-webkit-scrollbar {
-
-    width: 10px;
-
-    height: 10px;
-}
-
-
-::-webkit-scrollbar-track {
-
-    background-color: var(--sf-bg);
-}
-
-
-::-webkit-scrollbar-thumb {
-
-    background-color: var(--sf-border);
-
-    border-radius: 999px;
-
-    border:
-        2px solid
-        var(--sf-bg);
-}
-
-
-::-webkit-scrollbar-thumb:hover {
-
-    background-color: var(--sf-primary);
-}
-
-
-/* ============================================================
-   FOCUS ACCESSIBILITY
-   ============================================================ */
-
-/*
- * Give keyboard users a clear StoryForge focus indicator.
- */
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-summary:focus-visible {
-
-    outline:
-        3px solid
-        rgba(39, 217, 211, 0.55);
-
-    outline-offset: 2px;
-}
-
-
-/* ============================================================
-   RESPONSIVE ADJUSTMENTS
-   ============================================================ */
-
-@media (max-width: 991.98px) {
-
-    /*
-     * Reduce manuscript padding where screen space
-     * becomes more limited.
-     */
-    #scene-editor {
-
-        padding: 1.75rem !important;
-    }
-
-
-    /*
-     * Let toolbar controls wrap naturally.
-     */
-    #scene-editor-toolbar {
-
-        gap: 0.5rem !important;
-    }
-}
-
-
-@media (max-width: 575.98px) {
-
-    /*
-     * Phone-sized manuscript editor.
-     */
-    #scene-editor {
-
-        padding: 1.1rem !important;
-
-        font-size: 1rem;
-
-        border-radius: var(--sf-radius-small);
-    }
-
-
-    /*
-     * Keep major headings from dominating narrow screens.
-     */
-    h1 {
-
-        font-size: 1.8rem;
-    }
-
-
-    /*
-     * Make the rich-text toolbar slightly more compact.
-     */
-    #scene-editor-toolbar {
-
-        padding: 0.6rem;
-    }
-
-
-    #scene-editor-toolbar .btn,
-    #scene-editor-toolbar .form-select,
-    #scene-editor-toolbar .input-group-text {
-
-        font-size: 0.82rem;
-    }
-}
-
-
-/* ============================================================
-   STORYFORGE MANUSCRIPT OUTLINE
-   ============================================================ */
-
-/*
- * Shared navigation for Book Editor and Chapter Editor.
- *
- * Uses the existing StoryForge colour variables and
- * follows the appearance of the Scene Editor sidebar.
- */
-
-
-/* ============================================================
-   OUTLINE CONTAINER
-   ============================================================ */
 
 .storyforge-outline-container {
     position: sticky;
-    top: 1.5rem;
+    top: 1rem;
 
-    max-height: calc(100vh - 3rem);
+    max-height: calc(100vh - 2rem);
     overflow-y: auto;
 }
-
-
-/* ============================================================
-   OUTLINE PANEL
-   ============================================================ */
 
 .storyforge-manuscript-outline {
     background-color: var(--sf-surface);
@@ -1138,11 +635,6 @@ summary:focus-visible {
     padding: 1rem;
 }
 
-
-/* ============================================================
-   PROJECT INFORMATION
-   ============================================================ */
-
 .storyforge-manuscript-outline h2 {
     color: var(--sf-deep);
 }
@@ -1153,7 +645,7 @@ summary:focus-visible {
 
 
 /* ============================================================
-   CHAPTER NAVIGATION
+   18. OUTLINE CHAPTERS
    ============================================================ */
 
 .storyforge-outline-chapter {
@@ -1183,11 +675,6 @@ summary:focus-visible {
     border-left-color: var(--sf-accent);
 }
 
-
-/* ============================================================
-   EXPAND / COLLAPSE BUTTON
-   ============================================================ */
-
 .storyforge-outline-toggle {
     color: var(--sf-primary);
     background-color: transparent;
@@ -1214,7 +701,7 @@ summary:focus-visible {
 
 
 /* ============================================================
-   SCENE NAVIGATION
+   19. OUTLINE SCENES
    ============================================================ */
 
 .storyforge-outline-scenes {
@@ -1230,7 +717,6 @@ summary:focus-visible {
 
     border: 1px solid transparent;
     border-left: 3px solid transparent;
-
     border-radius: 0;
 
     padding: 0.75rem 1rem;
@@ -1244,13 +730,9 @@ summary:focus-visible {
 .storyforge-outline-scene:hover {
     background-color: var(--sf-surface-hover);
     color: var(--sf-deep);
+
     border-color: var(--sf-primary);
 }
-
-
-/* ============================================================
-   ACTIVE SCENE
-   ============================================================ */
 
 .storyforge-outline-scene.active,
 .storyforge-outline-scene.active:hover,
@@ -1270,8 +752,13 @@ summary:focus-visible {
 
 
 /* ============================================================
-   MULTI-EDITOR FORMATTING TOOLBAR
+   20. LEGACY MULTI-EDITOR STYLES
    ============================================================ */
+
+/*
+ * Retained for compatibility with any older editor views.
+ * The new continuous editor uses separate classes.
+ */
 
 .storyforge-multi-toolbar {
     padding: 0.8rem;
@@ -1290,14 +777,8 @@ summary:focus-visible {
     font-size: 0.9rem;
 }
 
-
-/* ============================================================
-   MULTI-EDITOR WRITING SURFACE
-   ============================================================ */
-
 .storyforge-editable-scene [data-editor] {
     min-height: 180px;
-
     padding: 1.5rem;
 
     background-color: var(--sf-white);
@@ -1325,11 +806,6 @@ summary:focus-visible {
     margin-bottom: 0.8rem;
 }
 
-
-/* ============================================================
-   MANUSCRIPT SCROLL POSITIONING
-   ============================================================ */
-
 .storyforge-editable-chapter,
 .storyforge-editable-scene {
     scroll-margin-top: 1.5rem;
@@ -1337,13 +813,411 @@ summary:focus-visible {
 
 
 /* ============================================================
-   RESPONSIVE NAVIGATION
+   21. CONTINUOUS EDITOR LAYOUT
+   ============================================================ */
+
+/*
+ * The manuscript is one continuous writing surface.
+ *
+ * Book and Chapter Editors use the same layout.
+ */
+
+.storyforge-multi-editor {
+    width: 100%;
+    min-width: 0;
+}
+
+.storyforge-multi-editor main {
+    min-width: 0;
+}
+
+#multi-editor-content {
+    width: 100%;
+    min-width: 0;
+}
+
+/*
+ * The white manuscript page.
+ */
+
+.storyforge-manuscript-paper {
+    box-sizing: border-box;
+
+    width: 100%;
+    min-width: 0;
+    min-height: 70vh;
+
+    background-color: var(--sf-white);
+
+    border: 1px solid var(--sf-border);
+    border-radius: var(--sf-radius);
+
+    box-shadow: var(--sf-shadow);
+
+    overflow-wrap: break-word;
+}
+
+
+/* ============================================================
+   22. CONTINUOUS EDITOR TYPOGRAPHY
+   ============================================================ */
+
+/*
+ * TipTap attaches storyforge-continuous-document
+ * to its ProseMirror contenteditable element.
+ *
+ * Style that element directly.
+ */
+
+.storyforge-manuscript-paper
+.ProseMirror.storyforge-continuous-document {
+    box-sizing: border-box;
+
+    width: 100%;
+    min-width: 0;
+    min-height: 70vh;
+
+    padding: 3rem 3.5rem;
+
+    background-color: var(--sf-white);
+    color: var(--sf-text);
+
+    font-family:
+        Georgia,
+        "Times New Roman",
+        serif;
+
+    font-size: 1.05rem;
+    font-weight: 400;
+    line-height: 1.7;
+
+    outline: none;
+
+    overflow-wrap: break-word;
+    word-break: normal;
+}
+
+/*
+ * Keep manuscript text at a comfortable line length.
+ *
+ * A maximum width of 48rem gives the writing surface
+ * a more traditional manuscript appearance.
+ */
+
+.storyforge-continuous-document
+.storyforge-continuous-chapter {
+    box-sizing: border-box;
+
+    width: 100%;
+    max-width: 48rem;
+
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/*
+ * The author may have saved inline paragraph formatting.
+ *
+ * Do not override:
+ * - text-align
+ * - text-indent
+ * - margin-left
+ * - line-height
+ *
+ * Those properties belong to the manuscript data.
+ */
+
+.storyforge-continuous-document
+.storyforge-continuous-scene p {
+    margin-top: 0;
+    margin-bottom: 0.8rem;
+
+    font-family: inherit;
+    font-size: inherit;
+
+    overflow-wrap: break-word;
+    word-break: normal;
+}
+
+/*
+ * Manuscript headings should use a readable serif,
+ * not the application's Cinzel display font.
+ */
+
+.storyforge-continuous-document h1,
+.storyforge-continuous-document h2,
+.storyforge-continuous-document h3,
+.storyforge-continuous-document h4,
+.storyforge-continuous-document h5,
+.storyforge-continuous-document h6 {
+    color: var(--sf-text);
+
+    font-family:
+        Georgia,
+        "Times New Roman",
+        serif;
+
+    letter-spacing: normal;
+}
+
+
+/* ============================================================
+   23. CONTINUOUS CHAPTER HEADINGS
+   ============================================================ */
+
+/*
+ * Chapter titles are displayed using the chapter node's
+ * data-chapter-title attribute.
+ *
+ * They are not part of the saved scene HTML.
+ */
+
+.storyforge-continuous-document
+.storyforge-continuous-chapter::before {
+    content: attr(data-chapter-title);
+
+    display: block;
+
+    margin: 0 0 2.5rem;
+
+    font-family:
+        Georgia,
+        "Times New Roman",
+        serif;
+
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.4;
+
+    text-align: center;
+
+    color: var(--sf-deep);
+
+    pointer-events: none;
+}
+
+.storyforge-continuous-document
+.storyforge-continuous-chapter +
+.storyforge-continuous-chapter {
+    margin-top: 4rem;
+    padding-top: 2rem;
+}
+
+
+/* ============================================================
+   24. CONTINUOUS SCENES
+   ============================================================ */
+
+/*
+ * Scenes remain separate TipTap document nodes.
+ *
+ * Visually, however, they flow together.
+ *
+ * No boxes.
+ * No individual toolbars.
+ * No save buttons.
+ * No decorative scene separators.
+ */
+
+.storyforge-continuous-document
+.storyforge-continuous-scene {
+    box-sizing: border-box;
+
+    display: block;
+
+    width: 100%;
+    min-width: 0;
+    min-height: 1.5em;
+
+    margin: 0;
+    padding: 0;
+
+    background-color: transparent;
+
+    border: none;
+    border-radius: 0;
+
+    outline: none;
+}
+
+.storyforge-continuous-document
+.storyforge-continuous-scene +
+.storyforge-continuous-scene {
+    margin-top: 1.25rem;
+}
+
+.storyforge-continuous-document
+.storyforge-continuous-scene:focus {
+    outline: none;
+}
+
+
+/* ============================================================
+   25. SHARED CONTINUOUS TOOLBAR
+   ============================================================ */
+
+/*
+ * IMPORTANT:
+ *
+ * The toolbar is inside #multi-editor-toolbar.
+ * The outer wrapper must be sticky.
+ *
+ * Making only the inner toolbar sticky would not reliably
+ * keep it visible while scrolling the manuscript.
+ */
+
+#multi-editor-toolbar {
+    position: sticky;
+
+    top: 0;
+    z-index: 100;
+
+    width: 100%;
+    min-width: 0;
+}
+
+.storyforge-continuous-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+
+    gap: 0.5rem;
+
+    padding: 0.75rem;
+
+    background-color: var(--sf-surface);
+
+    border: 1px solid var(--sf-border);
+    border-radius: var(--sf-radius);
+
+    box-shadow: var(--sf-shadow);
+}
+
+.storyforge-continuous-toolbar .btn,
+.storyforge-continuous-toolbar .form-select {
+    font-size: 0.9rem;
+}
+
+.storyforge-continuous-toolbar .btn.active {
+    background-color: var(--sf-primary);
+    color: var(--sf-white);
+
+    border-color: var(--sf-primary);
+}
+
+.storyforge-toolbar-divider {
+    display: inline-block;
+
+    width: 1px;
+    height: 1.5rem;
+
+    margin: 0 0.15rem;
+
+    background-color: var(--sf-border);
+
+    flex-shrink: 0;
+}
+
+
+/* ============================================================
+   26. CONTINUOUS EDITOR SAVE STATUS
+   ============================================================ */
+
+#multi-editor-save-status {
+    color: var(--sf-copper);
+
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+#multi-editor-save-status.text-danger {
+    color: var(--sf-danger) !important;
+}
+
+
+/* ============================================================
+   27. SCROLL NAVIGATION
+   ============================================================ */
+
+/*
+ * Leave room for the sticky formatting toolbar when
+ * navigating to chapters and scenes.
+ */
+
+.storyforge-continuous-chapter,
+.storyforge-continuous-scene {
+    scroll-margin-top: 7rem;
+}
+
+
+/* ============================================================
+   28. SCROLLBARS
+   ============================================================ */
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background-color: var(--sf-bg);
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: var(--sf-border);
+
+    border-radius: 999px;
+
+    border:
+        2px solid var(--sf-bg);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: var(--sf-primary);
+}
+
+
+/* ============================================================
+   29. ACCESSIBILITY
+   ============================================================ */
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+    outline:
+        3px solid rgba(39, 217, 211, 0.55);
+
+    outline-offset: 2px;
+}
+
+.storyforge-continuous-document ::selection {
+    background-color: rgba(39, 217, 211, 0.28);
+    color: var(--sf-text);
+}
+
+
+/* ============================================================
+   30. TABLET RESPONSIVENESS
    ============================================================ */
 
 @media (max-width: 991.98px) {
 
+    /* Original Scene Editor */
+
+    #scene-editor {
+        padding: 1.75rem !important;
+    }
+
+    #scene-editor-toolbar {
+        gap: 0.5rem !important;
+    }
+
+    /* Manuscript outline */
+
     .storyforge-outline-container {
         position: static;
+
         max-height: 45vh;
     }
 
@@ -1351,13 +1225,66 @@ summary:focus-visible {
         margin-bottom: 1rem;
     }
 
+    /* Legacy multi-editor */
+
     .storyforge-editable-scene [data-editor] {
         padding: 1rem;
     }
 
+    /* Continuous manuscript */
+
+    .storyforge-manuscript-paper
+    .ProseMirror.storyforge-continuous-document {
+        padding: 2rem;
+    }
+
+    .storyforge-continuous-toolbar {
+        gap: 0.4rem;
+    }
+
 }
 
+
+/* ============================================================
+   31. MOBILE RESPONSIVENESS
+   ============================================================ */
+
 @media (max-width: 575.98px) {
+
+    /* Navigation */
+
+    .storyforge-nav-logo {
+        height: 48px;
+        max-width: 210px;
+    }
+
+    /* Interface headings */
+
+    h1 {
+        font-size: 1.8rem;
+    }
+
+    /* Original Scene Editor */
+
+    #scene-editor {
+        padding: 1.1rem !important;
+
+        font-size: 1rem;
+
+        border-radius: var(--sf-radius-small);
+    }
+
+    #scene-editor-toolbar {
+        padding: 0.6rem;
+    }
+
+    #scene-editor-toolbar .btn,
+    #scene-editor-toolbar .form-select,
+    #scene-editor-toolbar .input-group-text {
+        font-size: 0.82rem;
+    }
+
+    /* Legacy multi-editor */
 
     .storyforge-multi-toolbar {
         padding: 0.6rem;
@@ -1368,4 +1295,254 @@ summary:focus-visible {
         font-size: 0.82rem;
     }
 
+    /* Continuous manuscript page */
+
+    .storyforge-manuscript-paper {
+        min-height: 60vh;
+    }
+
+    .storyforge-manuscript-paper
+    .ProseMirror.storyforge-continuous-document {
+        min-height: 60vh;
+
+        padding: 1.25rem;
+
+        font-size: 1rem;
+        line-height: 1.6;
+    }
+
+    /* Chapter headings */
+
+    .storyforge-continuous-document
+    .storyforge-continuous-chapter::before {
+        margin-bottom: 1.75rem;
+
+        font-size: 1.25rem;
+    }
+
+    /* Formatting toolbar */
+
+    .storyforge-continuous-toolbar {
+        gap: 0.35rem;
+
+        padding: 0.6rem;
+    }
+
+    .storyforge-continuous-toolbar .btn,
+    .storyforge-continuous-toolbar .form-select {
+        font-size: 0.82rem;
+    }
+
+    .storyforge-toolbar-divider {
+        display: none;
+    }
+
+    /* Smaller navigation scroll offset */
+
+    .storyforge-continuous-chapter,
+    .storyforge-continuous-scene {
+        scroll-margin-top: 9rem;
+    }
+
 }
+
+
+
+/* ============================================================
+   CONTINUOUS MANUSCRIPT SCENE BREAKS
+   ============================================================ */
+
+/*
+ * Display a scene break between consecutive scenes.
+ *
+ * This is visual only:
+ * - Not editable
+ * - Not stored in scene HTML
+ * - Not included in word counts
+ * - Works in Book Editor and Chapter Editor
+ */
+
+.storyforge-continuous-document
+.storyforge-continuous-scene +
+.storyforge-continuous-scene::before {
+    content: "* * *";
+
+    display: block;
+
+    margin: 2rem 0;
+
+    color: var(--sf-text);
+
+    font-family:
+        Georgia,
+        "Times New Roman",
+        serif;
+
+    font-size: 1.1rem;
+    font-weight: 400;
+
+    line-height: 1.5;
+    letter-spacing: 0.2em;
+
+    text-align: center;
+
+    pointer-events: none;
+    user-select: none;
+}
+
+/*
+ * Avoid excessive spacing around scene breaks.
+ */
+
+.storyforge-continuous-document
+.storyforge-continuous-scene +
+.storyforge-continuous-scene {
+    margin-top: 0;
+}
+
+
+/* ============================================================
+   CHAPTER HEADINGS AND POV MARKERS
+   ============================================================ */
+
+/*
+ * Display-only manuscript metadata.
+ *
+ * These elements are created by ProseMirror decorations
+ * and are not part of editable scene content.
+ */
+
+/*
+ * The old CSS-generated chapter heading is replaced
+ * by the new structured heading elements.
+ */
+
+.storyforge-continuous-document
+.storyforge-continuous-chapter::before {
+    content: none;
+    display: none;
+}
+
+/* Chapter heading container */
+
+.storyforge-manuscript-chapter-heading {
+    display: block;
+
+    margin: 0 0 2.5rem;
+
+    text-align: center;
+
+    font-family:
+        Georgia,
+        "Times New Roman",
+        serif;
+
+    user-select: none;
+}
+
+/* Automatic chapter number */
+
+.storyforge-chapter-number {
+    margin-bottom: 0.75rem;
+
+    color: var(--sf-deep);
+
+    font-size: 1rem;
+    font-weight: 600;
+
+    line-height: 1.5;
+    letter-spacing: 0.08em;
+}
+
+/* Optional chapter title */
+
+.storyforge-chapter-title {
+    margin-bottom: 0.75rem;
+
+    color: var(--sf-text);
+
+    font-size: 1.5rem;
+    font-weight: 700;
+
+    line-height: 1.4;
+}
+
+/* Combined chapter number and title */
+
+.storyforge-chapter-heading-inline {
+    margin-bottom: 1rem;
+
+    color: var(--sf-deep);
+
+    font-size: 1.4rem;
+    font-weight: 700;
+
+    line-height: 1.5;
+}
+
+/* Chapter-level POV */
+
+.storyforge-chapter-pov {
+    margin-top: 1rem;
+
+    color: var(--sf-text-muted);
+
+    font-size: 1rem;
+    font-style: italic;
+
+    line-height: 1.5;
+    letter-spacing: 0.04em;
+}
+
+/* Scene-level POV */
+
+.storyforge-scene-pov {
+    display: block;
+
+    margin: 1.5rem 0 1.25rem;
+
+    color: var(--sf-text-muted);
+
+    font-family:
+        Georgia,
+        "Times New Roman",
+        serif;
+
+    font-size: 1rem;
+    font-style: italic;
+
+    line-height: 1.5;
+    text-align: center;
+
+    user-select: none;
+}
+
+/*
+ * Keep chapter headings and POV markers
+ * comfortable on smaller screens.
+ */
+
+@media (max-width: 575.98px) {
+    .storyforge-manuscript-chapter-heading {
+        margin-bottom: 1.75rem;
+    }
+
+    .storyforge-chapter-title {
+        font-size: 1.25rem;
+    }
+
+    .storyforge-chapter-heading-inline {
+        font-size: 1.2rem;
+    }
+
+    .storyforge-chapter-number,
+    .storyforge-chapter-pov,
+    .storyforge-scene-pov {
+        font-size: 0.95rem;
+    }
+}
+
+
+/* ============================================================
+   END OF STORYFORGE STYLESHEET
+   ============================================================ */
