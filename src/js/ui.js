@@ -8,10 +8,11 @@
  * - Project creation
  * - Project dashboard
  * - Project details and manuscript actions
- * - Chapter details
+ * - Chapter details and chapter editing action
  * - Scene editor
  *
- * Manuscript viewing and DOCX export are connected in app.js.
+ * Book and chapter editing workspaces are rendered by
+ * multiEditor.js and connected through app.js.
  */
 
 import {
@@ -27,12 +28,6 @@ import headingLogo from "../images/heading-logo.png";
 // DISPLAY HELPERS
 // ============================================================
 
-/*
- * Format word counts for display.
- *
- * 1    -> 1 word
- * 2500 -> 2,500 words
- */
 function formatWordCount(count) {
     const label = count === 1 ? "word" : "words";
 
@@ -41,7 +36,6 @@ function formatWordCount(count) {
 
 /*
  * Escape user-provided text before inserting it into HTML.
- * This protects titles and attributes from HTML injection.
  */
 function escapeHTML(value) {
     return String(value ?? "").replace(
@@ -63,14 +57,12 @@ function escapeHTML(value) {
 
 /*
  * Shared navigation bar.
- *
  * app.js handles clicks on .storyforge-home.
  */
 function renderNavbar() {
     return `
         <nav class="storyforge-nav">
             <div class="container">
-
                 <button
                     class="storyforge-home"
                     type="button"
@@ -83,7 +75,6 @@ function renderNavbar() {
                         alt="StoryForge"
                     >
                 </button>
-
             </div>
         </nav>
     `;
@@ -97,8 +88,8 @@ function renderNavbar() {
 /*
  * Build a Rename/Delete menu.
  *
- * The original action classes and data attributes are
- * preserved so existing app.js listeners continue working.
+ * Existing classes and data attributes are preserved
+ * for the event listeners in app.js.
  */
 function renderActionMenu(type, id) {
     const safeId = escapeHTML(id);
@@ -106,7 +97,6 @@ function renderActionMenu(type, id) {
 
     return `
         <details class="position-relative">
-
             <summary
                 class="btn btn-sm btn-outline-secondary"
                 title="${safeType} actions"
@@ -117,19 +107,11 @@ function renderActionMenu(type, id) {
 
             <div
                 class="
-                    position-absolute
-                    end-0
-                    mt-2
-                    p-2
-                    bg-body
-                    border
-                    rounded
-                    shadow-sm
+                    position-absolute end-0 mt-2 p-2
+                    bg-body border rounded shadow-sm
                 "
                 style="min-width: 10rem; z-index: 10;"
             >
-
-                <!-- Rename the selected item. -->
                 <button
                     class="
                         btn btn-sm btn-outline-secondary
@@ -142,7 +124,6 @@ function renderActionMenu(type, id) {
                     Rename
                 </button>
 
-                <!-- Delete the selected item. -->
                 <button
                     class="
                         btn btn-sm btn-outline-danger
@@ -154,7 +135,6 @@ function renderActionMenu(type, id) {
                 >
                     Delete
                 </button>
-
             </div>
         </details>
     `;
@@ -165,19 +145,13 @@ function renderActionMenu(type, id) {
 // PROJECT CREATION VIEW
 // ============================================================
 
-/*
- * Render the form used to create a new project.
- */
 export function renderCreateProjectForm(container) {
     container.innerHTML = `
         ${renderNavbar()}
 
         <div class="container mt-4">
-
             <form id="create-project-form">
-
                 <div class="mb-3">
-
                     <label
                         for="project-title"
                         class="form-label"
@@ -192,7 +166,6 @@ export function renderCreateProjectForm(container) {
                         placeholder="Enter project title"
                         required
                     >
-
                 </div>
 
                 <button
@@ -201,12 +174,9 @@ export function renderCreateProjectForm(container) {
                 >
                     Create Project
                 </button>
-
             </form>
 
-            <!-- Project cards are rendered here. -->
             <div id="project-list"></div>
-
         </div>
     `;
 }
@@ -216,15 +186,6 @@ export function renderCreateProjectForm(container) {
 // PROJECT LIST VIEW
 // ============================================================
 
-/*
- * Render all projects on the dashboard.
- *
- * Each project includes:
- * - Title
- * - Chapter count
- * - Word count
- * - Rename/Delete menu
- */
 export function renderProjectList(container, projects) {
     if (projects.length === 0) {
         container.innerHTML = `
@@ -238,21 +199,16 @@ export function renderProjectList(container, projects) {
 
     container.innerHTML = `
         <div class="mt-5">
-
             <h2>Your Projects</h2>
 
             <div class="row g-3 mt-2">
-
                 ${projects.map(project => {
                     const wordCount = countProjectWords(project);
 
                     return `
                         <div class="col-md-6 col-lg-4">
-
                             <div class="card h-100">
-
                                 <div class="card-body">
-
                                     <div
                                         class="
                                             d-flex
@@ -261,8 +217,6 @@ export function renderProjectList(container, projects) {
                                             gap-3
                                         "
                                     >
-
-                                        <!-- Open the project. -->
                                         <button
                                             class="
                                                 btn p-0 border-0
@@ -272,7 +226,6 @@ export function renderProjectList(container, projects) {
                                             data-project-id="${escapeHTML(project.id)}"
                                             type="button"
                                         >
-
                                             <h3 class="card-title h5">
                                                 ${escapeHTML(project.title)}
                                             </h3>
@@ -284,26 +237,19 @@ export function renderProjectList(container, projects) {
                                             <p class="card-text text-muted mb-0">
                                                 ${formatWordCount(wordCount)}
                                             </p>
-
                                         </button>
 
                                         ${renderActionMenu(
                                             "project",
                                             project.id
                                         )}
-
                                     </div>
-
                                 </div>
-
                             </div>
-
                         </div>
                     `;
                 }).join("")}
-
             </div>
-
         </div>
     `;
 }
@@ -314,16 +260,15 @@ export function renderProjectList(container, projects) {
 // ============================================================
 
 /*
- * Render the selected project.
+ * Displays project details, manuscript actions,
+ * chapter creation and chapter cards.
  *
- * Includes:
- * - Project information
- * - Full manuscript viewing button
- * - DOCX manuscript download button
- * - Chapter creation form
- * - Existing chapter cards and actions
+ * New:
+ * - Edit Book button
  *
- * app.js connects the manuscript buttons to their functions.
+ * Existing:
+ * - View Full Manuscript
+ * - Download Manuscript (.docx)
  */
 export function renderProjectView(container, project) {
     const projectWordCount = countProjectWords(project);
@@ -333,7 +278,8 @@ export function renderProjectView(container, project) {
 
         <div class="container mt-4">
 
-            <!-- Return to the project dashboard. -->
+            <!-- BACK NAVIGATION -->
+
             <button
                 id="back-to-projects"
                 class="btn btn-outline-secondary mb-4"
@@ -354,32 +300,31 @@ export function renderProjectView(container, project) {
             </p>
 
 
-            <!-- ============================================== -->
+            <!-- ========================================== -->
             <!-- MANUSCRIPT ACTIONS -->
-            <!-- ============================================== -->
-
-            <!--
-                These controls use the same project data.
-
-                View Full Manuscript:
-                Displays all chapters and scenes together.
-
-                Download Manuscript:
-                Exports the complete manuscript as DOCX.
-
-                Neither action modifies localStorage.
-            -->
+            <!-- ========================================== -->
 
             <div class="d-flex flex-wrap gap-2 mb-4">
 
+                <!-- NEW: Edit the complete book. -->
+                <button
+                    id="edit-book"
+                    class="btn btn-primary"
+                    type="button"
+                >
+                    Edit Book
+                </button>
+
+                <!-- Existing read-only manuscript view. -->
                 <button
                     id="view-manuscript"
-                    class="btn btn-primary"
+                    class="btn btn-outline-primary"
                     type="button"
                 >
                     View Full Manuscript
                 </button>
 
+                <!-- Existing Microsoft Word export. -->
                 <button
                     id="download-manuscript"
                     class="btn btn-outline-primary"
@@ -393,17 +338,15 @@ export function renderProjectView(container, project) {
             <hr>
 
 
-            <!-- ============================================== -->
+            <!-- ========================================== -->
             <!-- CHAPTER CREATION -->
-            <!-- ============================================== -->
+            <!-- ========================================== -->
 
             <form
                 id="create-chapter-form"
                 class="mt-4"
             >
-
                 <div class="mb-3">
-
                     <label
                         for="chapter-title"
                         class="form-label"
@@ -418,7 +361,6 @@ export function renderProjectView(container, project) {
                         placeholder="Enter chapter title"
                         required
                     >
-
                 </div>
 
                 <button
@@ -427,16 +369,14 @@ export function renderProjectView(container, project) {
                 >
                     Add Chapter
                 </button>
-
             </form>
 
 
-            <!-- ============================================== -->
+            <!-- ========================================== -->
             <!-- CHAPTER LIST -->
-            <!-- ============================================== -->
+            <!-- ========================================== -->
 
             <div class="mt-5">
-
                 <h2>Chapters</h2>
 
                 ${
@@ -450,18 +390,14 @@ export function renderProjectView(container, project) {
 
                         : `
                             <div class="row g-3 mt-2">
-
                                 ${project.chapters.map(chapter => {
                                     const chapterWordCount =
                                         countChapterWords(chapter);
 
                                     return `
                                         <div class="col-12">
-
                                             <div class="card">
-
                                                 <div class="card-body">
-
                                                     <div
                                                         class="
                                                             d-flex
@@ -470,8 +406,6 @@ export function renderProjectView(container, project) {
                                                             gap-3
                                                         "
                                                     >
-
-                                                        <!-- Open the chapter. -->
                                                         <button
                                                             class="
                                                                 btn p-0 border-0
@@ -483,7 +417,6 @@ export function renderProjectView(container, project) {
                                                             data-chapter-id="${escapeHTML(chapter.id)}"
                                                             type="button"
                                                         >
-
                                                             <h3 class="card-title h5">
                                                                 ${escapeHTML(chapter.title)}
                                                             </h3>
@@ -493,34 +426,24 @@ export function renderProjectView(container, project) {
                                                             </p>
 
                                                             <p class="card-text text-muted mb-0">
-                                                                ${formatWordCount(
-                                                                    chapterWordCount
-                                                                )}
+                                                                ${formatWordCount(chapterWordCount)}
                                                             </p>
-
                                                         </button>
 
                                                         ${renderActionMenu(
                                                             "chapter",
                                                             chapter.id
                                                         )}
-
                                                     </div>
-
                                                 </div>
-
                                             </div>
-
                                         </div>
                                     `;
                                 }).join("")}
-
                             </div>
                         `
                 }
-
             </div>
-
         </div>
     `;
 }
@@ -531,13 +454,11 @@ export function renderProjectView(container, project) {
 // ============================================================
 
 /*
- * Render the selected chapter and its scenes.
+ * Displays chapter details, scene creation,
+ * scene cards and editing actions.
  *
- * Includes:
- * - Chapter information
- * - Scene creation form
- * - Scene cards
- * - Rename/Delete actions
+ * New:
+ * - Edit Chapter button
  */
 export function renderChapterView(container, project, chapter) {
     const chapterWordCount = countChapterWords(chapter);
@@ -547,7 +468,8 @@ export function renderChapterView(container, project, chapter) {
 
         <div class="container mt-4">
 
-            <!-- Return to the containing project. -->
+            <!-- BACK NAVIGATION -->
+
             <button
                 id="back-to-project"
                 class="btn btn-outline-secondary mb-4"
@@ -567,18 +489,33 @@ export function renderChapterView(container, project, chapter) {
                 ${formatWordCount(chapterWordCount)}
             </p>
 
+
+            <!-- ========================================== -->
+            <!-- CHAPTER EDITING -->
+            <!-- ========================================== -->
+
+            <div class="d-flex flex-wrap gap-2 mb-4">
+                <button
+                    id="edit-chapter"
+                    class="btn btn-primary"
+                    type="button"
+                >
+                    Edit Chapter
+                </button>
+            </div>
+
             <hr>
 
 
+            <!-- ========================================== -->
             <!-- SCENE CREATION -->
+            <!-- ========================================== -->
 
             <form
                 id="create-scene-form"
                 class="mt-4"
             >
-
                 <div class="mb-3">
-
                     <label
                         for="scene-title"
                         class="form-label"
@@ -593,7 +530,6 @@ export function renderChapterView(container, project, chapter) {
                         placeholder="Enter scene title"
                         required
                     >
-
                 </div>
 
                 <button
@@ -602,14 +538,14 @@ export function renderChapterView(container, project, chapter) {
                 >
                     Add Scene
                 </button>
-
             </form>
 
 
+            <!-- ========================================== -->
             <!-- SCENE LIST -->
+            <!-- ========================================== -->
 
             <div class="mt-5">
-
                 <h2>Scenes</h2>
 
                 ${
@@ -623,18 +559,14 @@ export function renderChapterView(container, project, chapter) {
 
                         : `
                             <div class="row g-3 mt-2">
-
                                 ${chapter.scenes.map(scene => {
                                     const sceneWordCount =
                                         countSceneWords(scene.content);
 
                                     return `
                                         <div class="col-12">
-
                                             <div class="card">
-
                                                 <div class="card-body">
-
                                                     <div
                                                         class="
                                                             d-flex
@@ -643,8 +575,6 @@ export function renderChapterView(container, project, chapter) {
                                                             gap-3
                                                         "
                                                     >
-
-                                                        <!-- Open the scene editor. -->
                                                         <button
                                                             class="
                                                                 btn p-0 border-0
@@ -656,40 +586,29 @@ export function renderChapterView(container, project, chapter) {
                                                             data-scene-id="${escapeHTML(scene.id)}"
                                                             type="button"
                                                         >
-
                                                             <h3 class="card-title h5">
                                                                 ${escapeHTML(scene.title)}
                                                             </h3>
 
                                                             <p class="card-text text-muted mb-0">
-                                                                ${formatWordCount(
-                                                                    sceneWordCount
-                                                                )}
+                                                                ${formatWordCount(sceneWordCount)}
                                                             </p>
-
                                                         </button>
 
                                                         ${renderActionMenu(
                                                             "scene",
                                                             scene.id
                                                         )}
-
                                                     </div>
-
                                                 </div>
-
                                             </div>
-
                                         </div>
                                     `;
                                 }).join("")}
-
                             </div>
                         `
                 }
-
             </div>
-
         </div>
     `;
 }
@@ -700,10 +619,10 @@ export function renderChapterView(container, project, chapter) {
 // ============================================================
 
 /*
- * Render the desktop chapter/scene navigation.
+ * Desktop chapter/scene navigation.
  *
- * Existing classes and IDs are retained so app.js can
- * handle navigation between scenes and chapters.
+ * Existing classes and data attributes are preserved
+ * for the navigation handlers in app.js.
  */
 function renderEditorSidebar(project, chapter, scene) {
     return `
@@ -711,9 +630,7 @@ function renderEditorSidebar(project, chapter, scene) {
             class="col-lg-3 d-none d-lg-block"
             id="editor-sidebar"
         >
-
             <div class="card">
-
                 <div class="card-body">
 
                     <h2 class="h5 mb-1">
@@ -736,7 +653,8 @@ function renderEditorSidebar(project, chapter, scene) {
                             return `
                                 <div class="mb-4">
 
-                                    <!-- Chapter navigation. -->
+                                    <!-- CHAPTER NAVIGATION -->
+
                                     <button
                                         class="
                                             btn btn-sm w-100 text-start
@@ -774,7 +692,6 @@ function renderEditorSidebar(project, chapter, scene) {
                                                         list-group-flush
                                                     "
                                                 >
-
                                                     ${sidebarChapter.scenes.map(
                                                         sidebarScene => {
                                                             const isCurrentScene =
@@ -806,7 +723,6 @@ function renderEditorSidebar(project, chapter, scene) {
                                                                             : ""
                                                                     }
                                                                 >
-
                                                                     <div>
                                                                         ${escapeHTML(sidebarScene.title)}
                                                                     </div>
@@ -820,26 +736,20 @@ function renderEditorSidebar(project, chapter, scene) {
                                                                     >
                                                                         ${formatWordCount(wordCount)}
                                                                     </small>
-
                                                                 </button>
                                                             `;
                                                         }
                                                     ).join("")}
-
                                                 </div>
                                             `
                                     }
-
                                 </div>
                             `;
                         }).join("")}
 
                     </div>
-
                 </div>
-
             </div>
-
         </aside>
     `;
 }
@@ -850,10 +760,10 @@ function renderEditorSidebar(project, chapter, scene) {
 // ============================================================
 
 /*
- * Build the rich-text formatting toolbar.
+ * Existing formatting toolbar.
  *
- * All existing button IDs are preserved for the TipTap
- * editor event handlers.
+ * Button IDs are preserved for the TipTap event handlers
+ * in app.js.
  */
 function renderEditorToolbar() {
     return `
@@ -871,7 +781,6 @@ function renderEditorToolbar() {
                 role="group"
                 aria-label="Text formatting"
             >
-
                 <button
                     id="editor-bold"
                     class="btn btn-outline-secondary"
@@ -901,7 +810,6 @@ function renderEditorToolbar() {
                 >
                     <u>U</u>
                 </button>
-
             </div>
 
 
@@ -912,7 +820,6 @@ function renderEditorToolbar() {
                 role="group"
                 aria-label="Text alignment"
             >
-
                 <button
                     id="editor-align-left"
                     class="btn btn-outline-secondary"
@@ -948,7 +855,6 @@ function renderEditorToolbar() {
                 >
                     Justify
                 </button>
-
             </div>
 
 
@@ -959,7 +865,6 @@ function renderEditorToolbar() {
                 role="group"
                 aria-label="Paragraph indentation"
             >
-
                 <button
                     id="editor-first-line-indent"
                     class="btn btn-outline-secondary"
@@ -986,7 +891,6 @@ function renderEditorToolbar() {
                 >
                     Outdent
                 </button>
-
             </div>
 
 
@@ -996,7 +900,6 @@ function renderEditorToolbar() {
                 class="input-group"
                 style="width: auto;"
             >
-
                 <label
                     class="input-group-text"
                     for="editor-line-spacing"
@@ -1009,15 +912,12 @@ function renderEditorToolbar() {
                     class="form-select"
                     aria-label="Line spacing"
                 >
-
                     <option value="">Normal</option>
                     <option value="1">1.0</option>
                     <option value="1.15">1.15</option>
                     <option value="1.5">1.5</option>
                     <option value="2">2.0</option>
-
                 </select>
-
             </div>
 
 
@@ -1028,7 +928,6 @@ function renderEditorToolbar() {
                 role="group"
                 aria-label="Editor history"
             >
-
                 <button
                     id="editor-undo"
                     class="btn btn-outline-secondary"
@@ -1046,7 +945,6 @@ function renderEditorToolbar() {
                 >
                     Redo
                 </button>
-
             </div>
 
         </div>
@@ -1059,19 +957,10 @@ function renderEditorToolbar() {
 // ============================================================
 
 /*
- * Render the scene editor.
+ * Render the existing individual scene editor.
  *
- * Includes:
- * - Back navigation
- * - Desktop chapter/scene sidebar
- * - Scene title and actions
- * - Rich-text formatting toolbar
- * - TipTap editor mount
- * - Autosave status
- * - Live word count
- * - Manual save button
- *
- * Editor creation and saving remain the responsibility of app.js.
+ * Editor creation, formatting, autosave and navigation
+ * are handled by app.js.
  */
 export function renderSceneView(
     container,
@@ -1114,13 +1003,10 @@ export function renderSceneView(
                         class="
                             d-flex
                             justify-content-between
-                            align-items-start
-                            gap-3
+                            align-items-start gap-3
                         "
                     >
-
                         <div>
-
                             <h1>${escapeHTML(scene.title)}</h1>
 
                             <p class="text-muted">
@@ -1128,11 +1014,9 @@ export function renderSceneView(
                                 /
                                 ${escapeHTML(chapter.title)}
                             </p>
-
                         </div>
 
                         ${renderActionMenu("scene", scene.id)}
-
                     </div>
 
                     <hr>
@@ -1158,12 +1042,9 @@ export function renderSceneView(
                         class="
                             d-flex
                             justify-content-between
-                            align-items-center
-                            mt-2
+                            align-items-center mt-2
                         "
                     >
-
-                        <!-- Autosave status. -->
                         <small
                             id="scene-save-status"
                             class="text-muted"
@@ -1171,14 +1052,12 @@ export function renderSceneView(
                             Saved
                         </small>
 
-                        <!-- Live word count. -->
                         <small
                             id="scene-word-count"
                             class="text-muted"
                         >
                             ${formatWordCount(sceneWordCount)}
                         </small>
-
                     </div>
 
 
@@ -1193,9 +1072,7 @@ export function renderSceneView(
                     </button>
 
                 </main>
-
             </div>
-
         </div>
     `;
 }

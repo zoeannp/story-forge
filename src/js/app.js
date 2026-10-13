@@ -2,6 +2,7 @@
 import { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
+
 import { ParagraphFormatting } from "./editorExtensions.js";
 
 import {
@@ -31,6 +32,8 @@ import {
 import { countSceneWords } from "./wordCount.js";
 import { renderManuscript } from "./manuscript.js";
 import { downloadManuscript } from "./export.js";
+import { renderMultiEditor } from "./multiEditor.js";
+
 
 // ============================================================
 // APPLICATION STATE
@@ -38,14 +41,25 @@ import { downloadManuscript } from "./export.js";
 
 const app = document.querySelector("#app");
 
-// Stores the cleanup function for the currently active editor.
+// Cleanup function for whichever editor is currently active.
 let activeSceneCleanup = null;
 
+
+// ============================================================
+// EDITOR CLEANUP
+// ============================================================
+
 function cleanupActiveEditor() {
-    if (activeSceneCleanup) {
-        activeSceneCleanup();
-    }
+    if (!activeSceneCleanup) return;
+
+    // Only clear the reference after cleanup succeeds.
+    const cleanup = activeSceneCleanup;
+
+    cleanup();
+
+    activeSceneCleanup = null;
 }
+
 
 // ============================================================
 // GLOBAL NAVIGATION
@@ -56,9 +70,18 @@ app.addEventListener("click", event => {
         return;
     }
 
-    cleanupActiveEditor();
-    showDashboard();
+    try {
+        cleanupActiveEditor();
+        showDashboard();
+    } catch (error) {
+        console.error("Could not leave editor:", error);
+        window.alert(
+            "Your changes could not be saved. " +
+            "Please try saving again before leaving."
+        );
+    }
 });
+
 
 // ============================================================
 // DASHBOARD
@@ -77,7 +100,10 @@ function showDashboard() {
 
     refreshProjectList();
 
-    // Create a project.
+    // --------------------------------------------------------
+    // CREATE PROJECT
+    // --------------------------------------------------------
+
     form.addEventListener("submit", event => {
         event.preventDefault();
 
@@ -86,14 +112,20 @@ function showDashboard() {
         if (!title) return;
 
         addProject(title);
+
         titleInput.value = "";
+
         refreshProjectList();
     });
 
-    // Handle project cards and actions through delegation.
+    // --------------------------------------------------------
+    // PROJECT ACTIONS
+    // --------------------------------------------------------
+
     projectList.addEventListener("click", event => {
-        const renameButton =
-            event.target.closest(".rename-project");
+        const renameButton = event.target.closest(
+            ".rename-project"
+        );
 
         if (renameButton) {
             const projectId = renameButton.dataset.projectId;
@@ -115,8 +147,9 @@ function showDashboard() {
             return;
         }
 
-        const deleteButton =
-            event.target.closest(".delete-project");
+        const deleteButton = event.target.closest(
+            ".delete-project"
+        );
 
         if (deleteButton) {
             const projectId = deleteButton.dataset.projectId;
@@ -133,12 +166,14 @@ function showDashboard() {
             if (!confirmed) return;
 
             deleteProject(projectId);
+
             refreshProjectList();
             return;
         }
 
-        const projectCard =
-            event.target.closest(".project-card");
+        const projectCard = event.target.closest(
+            ".project-card"
+        );
 
         if (projectCard) {
             openProject(projectCard.dataset.projectId);
@@ -146,15 +181,19 @@ function showDashboard() {
     });
 }
 
+
 // ============================================================
 // FULL MANUSCRIPT VIEW
 // ============================================================
 
 /*
- * Show all chapters and scenes as one continuous document.
- * This is a read-only view of the existing project data.
+ * Read-only view of the entire manuscript.
+ * This does not modify project data.
  */
+
 function openManuscript(projectId) {
+    cleanupActiveEditor();
+
     const project = getProjectById(projectId);
 
     if (!project) {
@@ -170,19 +209,114 @@ function openManuscript(projectId) {
         });
 }
 
+
+// ============================================================
+// BOOK EDITOR
+// ============================================================
+
+/*
+ * Opens all chapters and scenes in one editing workspace.
+ * Each scene is saved to its existing record.
+ */
+
+function openBookEditor(projectId) {
+    cleanupActiveEditor();
+
+    const project = getProjectById(projectId);
+
+    if (!project) {
+        showDashboard();
+        return;
+    }
+
+    const workspace = renderMultiEditor(app, project, {
+        mode: "book",
+
+        onBack: () => {
+            activeSceneCleanup = null;
+            openProject(projectId);
+        }
+    });
+
+    activeSceneCleanup = () => {
+        workspace.destroy();
+        activeSceneCleanup = null;
+    };
+}
+
+
+// ============================================================
+// CHAPTER EDITOR
+// ============================================================
+
+/*
+ * Opens every scene within a selected chapter.
+ * Scene content remains stored independently.
+ */
+
+function openChapterEditor(projectId, chapterId) {
+    cleanupActiveEditor();
+
+    const project = getProjectById(projectId);
+
+    if (!project) {
+        showDashboard();
+        return;
+    }
+
+    const chapter = project.chapters.find(
+        item => item.id === chapterId
+    );
+
+    if (!chapter) {
+        openProject(projectId);
+        return;
+    }
+
+    const workspace = renderMultiEditor(app, project, {
+        mode: "chapter",
+        chapterId,
+
+        onBack: () => {
+            activeSceneCleanup = null;
+            openChapter(projectId, chapterId);
+        }
+    });
+
+    activeSceneCleanup = () => {
+        workspace.destroy();
+        activeSceneCleanup = null;
+    };
+}
+
+
 // ============================================================
 // PROJECT VIEW
 // ============================================================
 
 function openProject(projectId) {
+    cleanupActiveEditor();
+
     const project = getProjectById(projectId);
 
-    if (!project) return;
+    if (!project) {
+        showDashboard();
+        return;
+    }
 
     renderProjectView(app, project);
 
     // --------------------------------------------------------
-    // MANUSCRIPT VIEW
+    // BOOK EDITOR
+    // --------------------------------------------------------
+
+    app.querySelector("#edit-book")
+        ?.addEventListener("click", () => {
+            openBookEditor(projectId);
+        });
+
+    // --------------------------------------------------------
+    // FULL MANUSCRIPT VIEW
     // --------------------------------------------------------
 
     app.querySelector("#view-manuscript")
@@ -194,14 +328,15 @@ function openProject(projectId) {
     // DOCX EXPORT
     // --------------------------------------------------------
 
-    const downloadButton =
-        app.querySelector("#download-manuscript");
+    const downloadButton = app.querySelector(
+        "#download-manuscript"
+    );
 
     downloadButton?.addEventListener("click", async () => {
         downloadButton.disabled = true;
 
         try {
-            // Fetch fresh data rather than using an old snapshot.
+            // Always use the latest saved manuscript.
             const currentProject = getProjectById(projectId);
 
             if (!currentProject) {
@@ -210,7 +345,10 @@ function openProject(projectId) {
 
             await downloadManuscript(currentProject);
         } catch (error) {
-            console.error("Manuscript export failed:", error);
+            console.error(
+                "Manuscript export failed:",
+                error
+            );
 
             window.alert(
                 error.message ||
@@ -226,19 +364,23 @@ function openProject(projectId) {
     // --------------------------------------------------------
 
     app.querySelector("#back-to-projects")
-        .addEventListener("click", showDashboard);
+        ?.addEventListener("click", () => {
+            showDashboard();
+        });
 
     // --------------------------------------------------------
-    // CHAPTER CREATION
+    // CREATE CHAPTER
     // --------------------------------------------------------
 
-    const chapterForm =
-        app.querySelector("#create-chapter-form");
+    const chapterForm = app.querySelector(
+        "#create-chapter-form"
+    );
 
-    const chapterTitleInput =
-        app.querySelector("#chapter-title");
+    const chapterTitleInput = app.querySelector(
+        "#chapter-title"
+    );
 
-    chapterForm.addEventListener("submit", event => {
+    chapterForm?.addEventListener("submit", event => {
         event.preventDefault();
 
         const title = chapterTitleInput.value.trim();
@@ -246,6 +388,7 @@ function openProject(projectId) {
         if (!title) return;
 
         addChapterToProject(projectId, title);
+
         openProject(projectId);
     });
 
@@ -266,77 +409,107 @@ function openProject(projectId) {
     // RENAME CHAPTER
     // --------------------------------------------------------
 
-    app.querySelectorAll(".rename-chapter").forEach(button => {
-        button.addEventListener("click", () => {
-            const chapterId = button.dataset.chapterId;
+    app.querySelectorAll(".rename-chapter")
+        .forEach(button => {
+            button.addEventListener("click", () => {
+                const chapterId = button.dataset.chapterId;
 
-            const chapter = project.chapters.find(
-                item => item.id === chapterId
-            );
+                const chapter = project.chapters.find(
+                    item => item.id === chapterId
+                );
 
-            if (!chapter) return;
+                if (!chapter) return;
 
-            const newTitle = window.prompt(
-                "Rename chapter:",
-                chapter.title
-            );
+                const newTitle = window.prompt(
+                    "Rename chapter:",
+                    chapter.title
+                );
 
-            if (newTitle === null) return;
+                if (newTitle === null) return;
 
-            if (renameChapter(projectId, chapterId, newTitle)) {
-                openProject(projectId);
-            }
+                if (
+                    renameChapter(
+                        projectId,
+                        chapterId,
+                        newTitle
+                    )
+                ) {
+                    openProject(projectId);
+                }
+            });
         });
-    });
 
     // --------------------------------------------------------
     // DELETE CHAPTER
     // --------------------------------------------------------
 
-    app.querySelectorAll(".delete-chapter").forEach(button => {
-        button.addEventListener("click", () => {
-            const chapterId = button.dataset.chapterId;
+    app.querySelectorAll(".delete-chapter")
+        .forEach(button => {
+            button.addEventListener("click", () => {
+                const chapterId = button.dataset.chapterId;
 
-            const chapter = project.chapters.find(
-                item => item.id === chapterId
-            );
+                const chapter = project.chapters.find(
+                    item => item.id === chapterId
+                );
 
-            if (!chapter) return;
+                if (!chapter) return;
 
-            const confirmed = window.confirm(
-                `Delete "${chapter.title}"?\n\n` +
-                "This will permanently delete this chapter " +
-                "and every scene inside it."
-            );
+                const confirmed = window.confirm(
+                    `Delete "${chapter.title}"?\n\n` +
+                    "This will permanently delete this chapter " +
+                    "and every scene inside it."
+                );
 
-            if (!confirmed) return;
+                if (!confirmed) return;
 
-            deleteChapter(projectId, chapterId);
-            openProject(projectId);
+                deleteChapter(projectId, chapterId);
+
+                openProject(projectId);
+            });
         });
-    });
 }
+
 
 // ============================================================
 // CHAPTER VIEW
 // ============================================================
 
 function openChapter(projectId, chapterId) {
+    cleanupActiveEditor();
+
     const project = getProjectById(projectId);
 
-    if (!project) return;
+    if (!project) {
+        showDashboard();
+        return;
+    }
 
     const chapter = project.chapters.find(
         item => item.id === chapterId
     );
 
-    if (!chapter) return;
+    if (!chapter) {
+        openProject(projectId);
+        return;
+    }
 
     renderChapterView(app, project, chapter);
 
-    // Back to project.
+    // --------------------------------------------------------
+    // CHAPTER EDITOR
+    // --------------------------------------------------------
+
+    app.querySelector("#edit-chapter")
+        ?.addEventListener("click", () => {
+            openChapterEditor(projectId, chapterId);
+        });
+
+    // --------------------------------------------------------
+    // BACK TO PROJECT
+    // --------------------------------------------------------
+
     app.querySelector("#back-to-project")
-        .addEventListener("click", () => {
+        ?.addEventListener("click", () => {
             openProject(projectId);
         });
 
@@ -344,20 +517,27 @@ function openChapter(projectId, chapterId) {
     // CREATE SCENE
     // --------------------------------------------------------
 
-    const sceneForm =
-        app.querySelector("#create-scene-form");
+    const sceneForm = app.querySelector(
+        "#create-scene-form"
+    );
 
-    const sceneTitleInput =
-        app.querySelector("#scene-title");
+    const sceneTitleInput = app.querySelector(
+        "#scene-title"
+    );
 
-    sceneForm.addEventListener("submit", event => {
+    sceneForm?.addEventListener("submit", event => {
         event.preventDefault();
 
         const title = sceneTitleInput.value.trim();
 
         if (!title) return;
 
-        addSceneToChapter(projectId, chapterId, title);
+        addSceneToChapter(
+            projectId,
+            chapterId,
+            title
+        );
+
         openChapter(projectId, chapterId);
     });
 
@@ -379,84 +559,110 @@ function openChapter(projectId, chapterId) {
     // RENAME SCENE
     // --------------------------------------------------------
 
-    app.querySelectorAll(".rename-scene").forEach(button => {
-        button.addEventListener("click", () => {
-            const sceneId = button.dataset.sceneId;
+    app.querySelectorAll(".rename-scene")
+        .forEach(button => {
+            button.addEventListener("click", () => {
+                const sceneId = button.dataset.sceneId;
 
-            const scene = chapter.scenes.find(
-                item => item.id === sceneId
-            );
+                const scene = chapter.scenes.find(
+                    item => item.id === sceneId
+                );
 
-            if (!scene) return;
+                if (!scene) return;
 
-            const newTitle = window.prompt(
-                "Rename scene:",
-                scene.title
-            );
+                const newTitle = window.prompt(
+                    "Rename scene:",
+                    scene.title
+                );
 
-            if (newTitle === null) return;
+                if (newTitle === null) return;
 
-            if (
-                renameScene(
-                    projectId,
-                    chapterId,
-                    sceneId,
-                    newTitle
-                )
-            ) {
-                openChapter(projectId, chapterId);
-            }
+                if (
+                    renameScene(
+                        projectId,
+                        chapterId,
+                        sceneId,
+                        newTitle
+                    )
+                ) {
+                    openChapter(projectId, chapterId);
+                }
+            });
         });
-    });
 
     // --------------------------------------------------------
     // DELETE SCENE
     // --------------------------------------------------------
 
-    app.querySelectorAll(".delete-scene").forEach(button => {
-        button.addEventListener("click", () => {
-            const sceneId = button.dataset.sceneId;
+    app.querySelectorAll(".delete-scene")
+        .forEach(button => {
+            button.addEventListener("click", () => {
+                const sceneId = button.dataset.sceneId;
 
-            const scene = chapter.scenes.find(
-                item => item.id === sceneId
-            );
+                const scene = chapter.scenes.find(
+                    item => item.id === sceneId
+                );
 
-            if (!scene) return;
+                if (!scene) return;
 
-            const confirmed = window.confirm(
-                `Delete "${scene.title}"?\n\n` +
-                "This will permanently delete this scene " +
-                "and all of its written content."
-            );
+                const confirmed = window.confirm(
+                    `Delete "${scene.title}"?\n\n` +
+                    "This will permanently delete this scene " +
+                    "and all of its written content."
+                );
 
-            if (!confirmed) return;
+                if (!confirmed) return;
 
-            deleteScene(projectId, chapterId, sceneId);
-            openChapter(projectId, chapterId);
+                deleteScene(
+                    projectId,
+                    chapterId,
+                    sceneId
+                );
+
+                openChapter(projectId, chapterId);
+            });
         });
-    });
 }
+
 
 // ============================================================
 // SCENE EDITOR VIEW
 // ============================================================
 
+/*
+ * Existing single-scene TipTap editor.
+ *
+ * This remains independent of multiEditor.js until the
+ * new chapter and book editing modes are fully tested.
+ */
+
 function openScene(projectId, chapterId, sceneId) {
+    cleanupActiveEditor();
+
     const project = getProjectById(projectId);
 
-    if (!project) return;
+    if (!project) {
+        showDashboard();
+        return;
+    }
 
     const chapter = project.chapters.find(
         item => item.id === chapterId
     );
 
-    if (!chapter) return;
+    if (!chapter) {
+        openProject(projectId);
+        return;
+    }
 
     const scene = chapter.scenes.find(
         item => item.id === sceneId
     );
 
-    if (!scene) return;
+    if (!scene) {
+        openChapter(projectId, chapterId);
+        return;
+    }
 
     renderSceneView(app, project, chapter, scene);
 
@@ -468,7 +674,9 @@ function openScene(projectId, chapterId, sceneId) {
     const backButton = app.querySelector("#back-to-chapter");
     const saveButton = app.querySelector("#save-scene");
     const saveStatus = app.querySelector("#scene-save-status");
-    const wordCountElement = app.querySelector("#scene-word-count");
+    const wordCountElement = app.querySelector(
+        "#scene-word-count"
+    );
 
     const renameButton = app.querySelector(".rename-scene");
     const deleteButton = app.querySelector(".delete-scene");
@@ -506,22 +714,30 @@ function openScene(projectId, chapterId, sceneId) {
 
     let autosaveTimeout = null;
     let hasUnsavedChanges = false;
+    let editorDestroyed = false;
 
     function setSaveStatus(message) {
-        saveStatus.textContent = message;
+        if (saveStatus) {
+            saveStatus.textContent = message;
+        }
     }
 
     function saveCurrentScene() {
-        updateSceneContent(
+        const result = updateSceneContent(
             projectId,
             chapterId,
             sceneId,
             editor.getHTML()
         );
+
+        if (result === false) {
+            throw new Error("Could not save scene.");
+        }
     }
 
     function scheduleAutosave() {
         hasUnsavedChanges = true;
+
         setSaveStatus("Unsaved changes");
 
         if (autosaveTimeout !== null) {
@@ -530,12 +746,23 @@ function openScene(projectId, chapterId, sceneId) {
 
         autosaveTimeout = setTimeout(() => {
             autosaveTimeout = null;
-            setSaveStatus("Saving...");
 
-            saveCurrentScene();
-            hasUnsavedChanges = false;
+            try {
+                setSaveStatus("Saving...");
 
-            setSaveStatus("Saved");
+                saveCurrentScene();
+
+                hasUnsavedChanges = false;
+
+                setSaveStatus("Saved");
+            } catch (error) {
+                console.error(
+                    "Scene autosave failed:",
+                    error
+                );
+
+                setSaveStatus("Save failed");
+            }
         }, 1000);
     }
 
@@ -545,12 +772,15 @@ function openScene(projectId, chapterId, sceneId) {
             autosaveTimeout = null;
         }
 
-        if (hasUnsavedChanges) {
-            setSaveStatus("Saving...");
-            saveCurrentScene();
-            hasUnsavedChanges = false;
-            setSaveStatus("Saved");
-        }
+        if (!hasUnsavedChanges) return;
+
+        setSaveStatus("Saving...");
+
+        saveCurrentScene();
+
+        hasUnsavedChanges = false;
+
+        setSaveStatus("Saved");
     }
 
     function saveImmediately() {
@@ -560,8 +790,11 @@ function openScene(projectId, chapterId, sceneId) {
         }
 
         setSaveStatus("Saving...");
+
         saveCurrentScene();
+
         hasUnsavedChanges = false;
+
         setSaveStatus("Saved");
     }
 
@@ -570,12 +803,22 @@ function openScene(projectId, chapterId, sceneId) {
     // --------------------------------------------------------
 
     function destroySceneEditor() {
-        activeSceneCleanup = null;
+        if (editorDestroyed) return;
+
         editor.destroy();
+
+        editorDestroyed = true;
+
+        if (activeSceneCleanup === cleanupSceneEditor) {
+            activeSceneCleanup = null;
+        }
     }
 
     function cleanupSceneEditor() {
+        if (editorDestroyed) return;
+
         flushAutosave();
+
         destroySceneEditor();
     }
 
@@ -587,6 +830,8 @@ function openScene(projectId, chapterId, sceneId) {
 
     function updateLiveWordCount() {
         const count = countSceneWords(editor.getHTML());
+
+        if (!wordCountElement) return;
 
         wordCountElement.textContent =
             `${count.toLocaleString()} ` +
@@ -602,8 +847,7 @@ function openScene(projectId, chapterId, sceneId) {
     }
 
     function getParagraphIndentAmount() {
-        const marginLeft =
-            getParagraphAttributes().marginLeft;
+        const marginLeft = getParagraphAttributes().marginLeft;
 
         if (!marginLeft) return 0;
 
@@ -618,7 +862,10 @@ function openScene(projectId, chapterId, sceneId) {
         if (!button) return;
 
         button.classList.toggle("active", active);
-        button.setAttribute("aria-pressed", String(active));
+        button.setAttribute(
+            "aria-pressed",
+            String(active)
+        );
     }
 
     // --------------------------------------------------------
@@ -626,6 +873,8 @@ function openScene(projectId, chapterId, sceneId) {
     // --------------------------------------------------------
 
     function updateToolbarState() {
+        if (editorDestroyed) return;
+
         setButtonActive(
             "#editor-bold",
             editor.isActive("bold")
@@ -649,7 +898,9 @@ function openScene(projectId, chapterId, sceneId) {
         ]) {
             setButtonActive(
                 `#editor-align-${alignment}`,
-                editor.isActive({ textAlign: alignment })
+                editor.isActive({
+                    textAlign: alignment
+                })
             );
         }
 
@@ -660,25 +911,54 @@ function openScene(projectId, chapterId, sceneId) {
             attributes.textIndent === "0.5in"
         );
 
-        app.querySelector("#editor-line-spacing").value =
-            attributes.lineHeight || "";
+        const spacingControl = app.querySelector(
+            "#editor-line-spacing"
+        );
 
-        app.querySelector("#editor-outdent").disabled =
-            getParagraphIndentAmount() <= 0;
+        if (spacingControl) {
+            spacingControl.value =
+                attributes.lineHeight || "";
+        }
 
-        app.querySelector("#editor-undo").disabled =
-            !editor.can().undo();
+        const outdentButton = app.querySelector(
+            "#editor-outdent"
+        );
 
-        app.querySelector("#editor-redo").disabled =
-            !editor.can().redo();
+        if (outdentButton) {
+            outdentButton.disabled =
+                getParagraphIndentAmount() <= 0;
+        }
+
+        const undoButton = app.querySelector(
+            "#editor-undo"
+        );
+
+        if (undoButton) {
+            undoButton.disabled = !editor.can().undo();
+        }
+
+        const redoButton = app.querySelector(
+            "#editor-redo"
+        );
+
+        if (redoButton) {
+            redoButton.disabled = !editor.can().redo();
+        }
     }
 
     // --------------------------------------------------------
     // EDITOR EVENTS
     // --------------------------------------------------------
 
-    editor.on("selectionUpdate", updateToolbarState);
-    editor.on("transaction", updateToolbarState);
+    editor.on(
+        "selectionUpdate",
+        updateToolbarState
+    );
+
+    editor.on(
+        "transaction",
+        updateToolbarState
+    );
 
     editor.on("update", () => {
         updateLiveWordCount();
@@ -694,17 +974,17 @@ function openScene(projectId, chapterId, sceneId) {
     // --------------------------------------------------------
 
     app.querySelector("#editor-bold")
-        .addEventListener("click", () => {
+        ?.addEventListener("click", () => {
             editor.chain().focus().toggleBold().run();
         });
 
     app.querySelector("#editor-italic")
-        .addEventListener("click", () => {
+        ?.addEventListener("click", () => {
             editor.chain().focus().toggleItalic().run();
         });
 
     app.querySelector("#editor-underline")
-        .addEventListener("click", () => {
+        ?.addEventListener("click", () => {
             editor.chain().focus().toggleUnderline().run();
         });
 
@@ -719,7 +999,7 @@ function openScene(projectId, chapterId, sceneId) {
         "justify"
     ]) {
         app.querySelector(`#editor-align-${alignment}`)
-            .addEventListener("click", () => {
+            ?.addEventListener("click", () => {
                 editor
                     .chain()
                     .focus()
@@ -733,7 +1013,7 @@ function openScene(projectId, chapterId, sceneId) {
     // --------------------------------------------------------
 
     app.querySelector("#editor-first-line-indent")
-        .addEventListener("click", () => {
+        ?.addEventListener("click", () => {
             const attributes = getParagraphAttributes();
 
             const textIndent =
@@ -744,7 +1024,9 @@ function openScene(projectId, chapterId, sceneId) {
             editor
                 .chain()
                 .focus()
-                .updateAttributes("paragraph", { textIndent })
+                .updateAttributes("paragraph", {
+                    textIndent
+                })
                 .run();
         });
 
@@ -753,7 +1035,7 @@ function openScene(projectId, chapterId, sceneId) {
     // --------------------------------------------------------
 
     app.querySelector("#editor-indent")
-        .addEventListener("click", () => {
+        ?.addEventListener("click", () => {
             const amount =
                 getParagraphIndentAmount() + 0.5;
 
@@ -767,7 +1049,7 @@ function openScene(projectId, chapterId, sceneId) {
         });
 
     app.querySelector("#editor-outdent")
-        .addEventListener("click", () => {
+        ?.addEventListener("click", () => {
             const amount = Math.max(
                 0,
                 getParagraphIndentAmount() - 0.5
@@ -778,7 +1060,9 @@ function openScene(projectId, chapterId, sceneId) {
                 .focus()
                 .updateAttributes("paragraph", {
                     marginLeft:
-                        amount === 0 ? null : `${amount}in`
+                        amount === 0
+                            ? null
+                            : `${amount}in`
                 })
                 .run();
         });
@@ -788,7 +1072,7 @@ function openScene(projectId, chapterId, sceneId) {
     // --------------------------------------------------------
 
     app.querySelector("#editor-line-spacing")
-        .addEventListener("change", event => {
+        ?.addEventListener("change", event => {
             const selected = event.target.value;
 
             editor
@@ -805,12 +1089,12 @@ function openScene(projectId, chapterId, sceneId) {
     // --------------------------------------------------------
 
     app.querySelector("#editor-undo")
-        .addEventListener("click", () => {
+        ?.addEventListener("click", () => {
             editor.chain().focus().undo().run();
         });
 
     app.querySelector("#editor-redo")
-        .addEventListener("click", () => {
+        ?.addEventListener("click", () => {
             editor.chain().focus().redo().run();
         });
 
@@ -818,22 +1102,36 @@ function openScene(projectId, chapterId, sceneId) {
     // MANUAL SAVE
     // --------------------------------------------------------
 
-    saveButton.addEventListener("click", () => {
-        saveImmediately();
-        saveButton.textContent = "Saved ✓";
+    saveButton?.addEventListener("click", () => {
+        try {
+            saveImmediately();
 
-        setTimeout(() => {
-            if (saveButton.isConnected) {
-                saveButton.textContent = "Save Scene";
-            }
-        }, 1200);
+            saveButton.textContent = "Saved ✓";
+
+            setTimeout(() => {
+                if (saveButton.isConnected) {
+                    saveButton.textContent = "Save Scene";
+                }
+            }, 1200);
+        } catch (error) {
+            console.error(
+                "Manual scene save failed:",
+                error
+            );
+
+            setSaveStatus("Save failed");
+
+            window.alert(
+                "The scene could not be saved."
+            );
+        }
     });
 
     // --------------------------------------------------------
     // RENAME CURRENT SCENE
     // --------------------------------------------------------
 
-    renameButton.addEventListener("click", () => {
+    renameButton?.addEventListener("click", () => {
         const newTitle = window.prompt(
             "Rename scene:",
             scene.title
@@ -841,7 +1139,15 @@ function openScene(projectId, chapterId, sceneId) {
 
         if (newTitle === null) return;
 
-        flushAutosave();
+        try {
+            flushAutosave();
+        } catch (error) {
+            console.error(error);
+            window.alert(
+                "Save failed. The scene was not renamed."
+            );
+            return;
+        }
 
         const renamed = renameScene(
             projectId,
@@ -853,14 +1159,19 @@ function openScene(projectId, chapterId, sceneId) {
         if (!renamed) return;
 
         destroySceneEditor();
-        openScene(projectId, chapterId, sceneId);
+
+        openScene(
+            projectId,
+            chapterId,
+            sceneId
+        );
     });
 
     // --------------------------------------------------------
     // DELETE CURRENT SCENE
     // --------------------------------------------------------
 
-    deleteButton.addEventListener("click", () => {
+    deleteButton?.addEventListener("click", () => {
         const confirmed = window.confirm(
             `Delete "${scene.title}"?\n\n` +
             "This will permanently delete this scene " +
@@ -869,10 +1180,20 @@ function openScene(projectId, chapterId, sceneId) {
 
         if (!confirmed) return;
 
-        flushAutosave();
+        // Cancel pending autosave before deleting the record.
+        if (autosaveTimeout !== null) {
+            clearTimeout(autosaveTimeout);
+            autosaveTimeout = null;
+        }
+
         destroySceneEditor();
 
-        deleteScene(projectId, chapterId, sceneId);
+        deleteScene(
+            projectId,
+            chapterId,
+            sceneId
+        );
+
         openChapter(projectId, chapterId);
     });
 
@@ -886,12 +1207,19 @@ function openScene(projectId, chapterId, sceneId) {
                 const targetChapterId =
                     button.dataset.chapterId;
 
-                cleanupSceneEditor();
+                try {
+                    cleanupSceneEditor();
 
-                openChapter(
-                    projectId,
-                    targetChapterId
-                );
+                    openChapter(
+                        projectId,
+                        targetChapterId
+                    );
+                } catch (error) {
+                    console.error(error);
+                    window.alert(
+                        "Could not save changes before navigating."
+                    );
+                }
             });
         });
 
@@ -915,25 +1243,42 @@ function openScene(projectId, chapterId, sceneId) {
                     return;
                 }
 
-                cleanupSceneEditor();
+                try {
+                    cleanupSceneEditor();
 
-                openScene(
-                    projectId,
-                    targetChapterId,
-                    targetSceneId
-                );
+                    openScene(
+                        projectId,
+                        targetChapterId,
+                        targetSceneId
+                    );
+                } catch (error) {
+                    console.error(error);
+                    window.alert(
+                        "Could not save changes before navigating."
+                    );
+                }
             });
         });
 
     // --------------------------------------------------------
-    // BACK NAVIGATION
+    // BACK TO CHAPTER
     // --------------------------------------------------------
 
-    backButton.addEventListener("click", () => {
-        cleanupSceneEditor();
-        openChapter(projectId, chapterId);
+    backButton?.addEventListener("click", () => {
+        try {
+            cleanupSceneEditor();
+
+            openChapter(projectId, chapterId);
+        } catch (error) {
+            console.error(error);
+
+            window.alert(
+                "Could not save changes before leaving."
+            );
+        }
     });
 }
+
 
 // ============================================================
 // APPLICATION START
