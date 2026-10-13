@@ -1,6 +1,19 @@
 
+/*
+ * StoryForge Multi-Level Editor
+ *
+ * Supports:
+ * - Book editing
+ * - Chapter editing
+ * - Manuscript outline navigation
+ * - Independent scene autosaving
+ * - Scene separators
+ * - Mobile navigation
+ */
+
 import { createStoryForgeEditor } from "./editor.js";
 import { updateSceneContent } from "./projects.js";
+import { renderManuscriptOutline } from "./manuscriptOutline.js";
 
 
 // ============================================================
@@ -25,24 +38,37 @@ function escapeHTML(value) {
 // EDITOR TOOLBAR
 // ============================================================
 
+/*
+ * Keep the toolbar IDs expected by editor.js.
+ * Each editor receives its own toolbar element.
+ */
 function createToolbar() {
     const toolbar = document.createElement("div");
 
     toolbar.className =
         "storyforge-multi-toolbar d-flex flex-wrap gap-2 mb-2";
 
+    toolbar.setAttribute("role", "toolbar");
+    toolbar.setAttribute("aria-label", "Scene formatting");
+
     toolbar.innerHTML = `
         <button type="button" id="editor-bold"
             class="btn btn-sm btn-outline-secondary"
-            title="Bold">B</button>
+            title="Bold">
+            <strong>B</strong>
+        </button>
 
         <button type="button" id="editor-italic"
             class="btn btn-sm btn-outline-secondary"
-            title="Italic"><em>I</em></button>
+            title="Italic">
+            <em>I</em>
+        </button>
 
         <button type="button" id="editor-underline"
             class="btn btn-sm btn-outline-secondary"
-            title="Underline"><u>U</u></button>
+            title="Underline">
+            <u>U</u>
+        </button>
 
         <button type="button" id="editor-align-left"
             class="btn btn-sm btn-outline-secondary">
@@ -111,7 +137,6 @@ function createSceneSection({
     projectId,
     chapter,
     scene,
-    sceneIndex,
     instances
 }) {
     const section = document.createElement("section");
@@ -119,33 +144,45 @@ function createSceneSection({
     section.className = "storyforge-editable-scene mb-4";
 
     section.dataset.sceneId = scene.id;
+    section.dataset.chapterId = chapter.id;
 
-    // Scene titles are internal navigation labels.
-    // They are not inserted into the manuscript itself.
+    // The scene title is a navigation label.
+    // It is not saved as part of the manuscript text.
     section.innerHTML = `
-        <div class="d-flex justify-content-between
-                    align-items-center mb-2">
+        <div class="
+            d-flex justify-content-between
+            align-items-center mb-2 gap-2
+        ">
             <span class="text-muted small">
                 ${escapeHTML(scene.title || "Untitled Scene")}
             </span>
 
             <span class="small text-muted"
-                  data-save-status>Saved</span>
+                data-save-status>
+                Saved
+            </span>
         </div>
 
         <div data-toolbar></div>
 
-        <div class="border rounded bg-white text-dark"
-             data-editor></div>
+        <div
+            class="border rounded bg-white text-dark"
+            data-editor
+        ></div>
 
-        <div class="d-flex justify-content-between
-                    align-items-center mt-2">
+        <div class="
+            d-flex justify-content-between
+            align-items-center mt-2 gap-2
+        ">
             <span class="small text-muted"
-                  data-word-count></span>
+                data-word-count>
+            </span>
 
-            <button type="button"
-                    class="btn btn-sm btn-outline-primary"
-                    data-save-button>
+            <button
+                type="button"
+                class="btn btn-sm btn-outline-primary"
+                data-save-button
+            >
                 Save Scene
             </button>
         </div>
@@ -198,14 +235,6 @@ function createSceneSection({
 // MULTI-LEVEL EDITOR
 // ============================================================
 
-/*
- * mode: "book" or "chapter"
- *
- * Book mode displays every chapter.
- * Chapter mode displays one selected chapter.
- *
- * Both modes save to the existing scene records.
- */
 export function renderMultiEditor(
     container,
     project,
@@ -229,33 +258,83 @@ export function renderMultiEditor(
         ? project.title
         : currentChapter?.title || "Chapter Editor";
 
+    // --------------------------------------------------------
+    // PAGE LAYOUT
+    // --------------------------------------------------------
+
     container.innerHTML = `
-        <div class="container py-4
-                    storyforge-multi-editor">
+        <div class="
+            container-fluid py-4 px-3 px-lg-4
+            storyforge-multi-editor
+        ">
 
-            <div class="d-flex justify-content-between
-                        align-items-center mb-4 gap-3">
+            <!-- EDITOR HEADER -->
 
+            <div class="
+                d-flex justify-content-between
+                align-items-center mb-4 gap-3
+            ">
                 <div>
                     <h2 class="mb-1">
                         ${escapeHTML(heading)}
                     </h2>
 
                     <p class="text-muted mb-0">
-                        ${mode === "book"
-                            ? "Book Editor"
-                            : "Chapter Editor"}
+                        ${
+                            mode === "book"
+                                ? "Book Editor"
+                                : "Chapter Editor"
+                        }
                     </p>
                 </div>
 
-                <button type="button"
-                        class="btn btn-outline-secondary"
-                        id="back-from-multi-editor">
+                <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    id="back-from-multi-editor"
+                >
                     Back
                 </button>
             </div>
 
-            <div id="multi-editor-content"></div>
+            <!-- MOBILE NAVIGATION TOGGLE -->
+
+            <button
+                type="button"
+                class="
+                    btn btn-outline-secondary
+                    d-lg-none mb-3
+                "
+                id="toggle-manuscript-outline"
+                aria-expanded="false"
+                aria-controls="multi-editor-sidebar"
+            >
+                ☰ Manuscript Navigation
+            </button>
+
+            <!-- MAIN LAYOUT -->
+
+            <div class="row g-4">
+
+                <!-- MANUSCRIPT OUTLINE -->
+
+                <aside
+                    class="col-12 col-lg-3 d-none d-lg-block"
+                    id="multi-editor-sidebar"
+                >
+                    <div
+                        id="multi-editor-outline"
+                        class="storyforge-outline-container"
+                    ></div>
+                </aside>
+
+                <!-- EDITABLE MANUSCRIPT -->
+
+                <main class="col-12 col-lg-9">
+                    <div id="multi-editor-content"></div>
+                </main>
+
+            </div>
         </div>
     `;
 
@@ -263,12 +342,30 @@ export function renderMultiEditor(
         "#multi-editor-content"
     );
 
+    const sidebar = container.querySelector(
+        "#multi-editor-sidebar"
+    );
+
+    const outlineContainer = container.querySelector(
+        "#multi-editor-outline"
+    );
+
+    const mobileToggle = container.querySelector(
+        "#toggle-manuscript-outline"
+    );
+
+    // --------------------------------------------------------
+    // BUILD MANUSCRIPT
+    // --------------------------------------------------------
+
     for (const chapter of chapters) {
         const chapterSection =
             document.createElement("section");
 
         chapterSection.className =
             "storyforge-editable-chapter mb-5";
+
+        chapterSection.dataset.chapterId = chapter.id;
 
         const chapterHeading =
             document.createElement("h3");
@@ -296,15 +393,17 @@ export function renderMultiEditor(
             chapterSection.appendChild(emptyMessage);
         }
 
-        scenes.forEach((scene, index) => {
-            // Display a manuscript scene separator.
-            // It is not part of either scene's saved HTML.
-            if (index > 0) {
+        scenes.forEach(scene => {
+            // Scene separators are display-only.
+            // They are never saved into scene content.
+            if (chapterSection.querySelector(
+                ".storyforge-editable-scene"
+            )) {
                 const separator =
                     document.createElement("div");
 
                 separator.className =
-                    "text-center my-4";
+                    "text-center my-4 storyforge-scene-separator";
 
                 separator.textContent = "* * *";
 
@@ -315,7 +414,6 @@ export function renderMultiEditor(
                 projectId: project.id,
                 chapter,
                 scene,
-                sceneIndex: index,
                 instances
             });
 
@@ -325,23 +423,170 @@ export function renderMultiEditor(
         content.appendChild(chapterSection);
     }
 
-    // ========================================================
+    // --------------------------------------------------------
+    // SCROLL NAVIGATION
+    // --------------------------------------------------------
+
+    function scrollToSection({
+        type,
+        chapterId: targetChapterId,
+        sceneId: targetSceneId
+    }) {
+        const chapterSection = Array.from(
+            content.querySelectorAll(
+                ".storyforge-editable-chapter"
+            )
+        ).find(
+            element =>
+                element.dataset.chapterId === targetChapterId
+        );
+
+        if (!chapterSection) return;
+
+        let target = chapterSection;
+
+        if (type === "scene") {
+            target = Array.from(
+                chapterSection.querySelectorAll(
+                    ".storyforge-editable-scene"
+                )
+            ).find(
+                element =>
+                    element.dataset.sceneId === targetSceneId
+            );
+
+            if (!target) return;
+        }
+
+        target.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+        });
+
+        // Close the navigation panel on mobile.
+        if (window.innerWidth < 992) {
+            sidebar.classList.add("d-none");
+            mobileToggle.setAttribute(
+                "aria-expanded",
+                "false"
+            );
+        }
+    }
+
+    // --------------------------------------------------------
+    // INITIALISE MANUSCRIPT OUTLINE
+    // --------------------------------------------------------
+
+    const outline = renderManuscriptOutline(
+        outlineContainer,
+        project,
+        {
+            mode,
+            chapterId,
+
+            onNavigate(selection) {
+                scrollToSection(selection);
+            }
+        }
+    );
+
+    // Highlight the first scene initially.
+    const firstChapterWithScenes = chapters.find(
+        chapter => chapter.scenes?.length > 0
+    );
+
+    if (firstChapterWithScenes) {
+        outline.setActiveScene(
+            firstChapterWithScenes.id,
+            firstChapterWithScenes.scenes[0].id
+        );
+    }
+
+    // --------------------------------------------------------
+    // ACTIVE SCENE WHEN EDITING
+    // --------------------------------------------------------
+
+    /*
+     * When the author focuses a scene editor,
+     * update the sidebar selection.
+     *
+     * Event delegation avoids adding one listener
+     * to every individual scene section.
+     */
+    function handleEditorFocus(event) {
+        const sceneSection = event.target.closest(
+            ".storyforge-editable-scene"
+        );
+
+        if (!sceneSection || !content.contains(sceneSection)) {
+            return;
+        }
+
+        outline.setActiveScene(
+            sceneSection.dataset.chapterId,
+            sceneSection.dataset.sceneId
+        );
+    }
+
+    content.addEventListener(
+        "focusin",
+        handleEditorFocus
+    );
+
+    // --------------------------------------------------------
+    // MOBILE SIDEBAR
+    // --------------------------------------------------------
+
+    function toggleMobileOutline() {
+        const isHidden = sidebar.classList.contains(
+            "d-none"
+        );
+
+        sidebar.classList.toggle("d-none", !isHidden);
+
+        mobileToggle.setAttribute(
+            "aria-expanded",
+            String(isHidden)
+        );
+    }
+
+    mobileToggle.addEventListener(
+        "click",
+        toggleMobileOutline
+    );
+
+    // --------------------------------------------------------
     // CLEANUP
-    // ========================================================
+    // --------------------------------------------------------
 
     let destroyed = false;
 
     function destroy() {
         if (destroyed) return;
 
-        // Each editor saves pending changes before destruction.
-        // Keep the instances available if saving throws.
+        // Save pending changes before removing listeners.
         for (const instance of instances) {
             instance.destroy();
         }
 
+        outline.destroy();
+
+        content.removeEventListener(
+            "focusin",
+            handleEditorFocus
+        );
+
+        mobileToggle.removeEventListener(
+            "click",
+            toggleMobileOutline
+        );
+
         destroyed = true;
     }
+
+    // --------------------------------------------------------
+    // BACK NAVIGATION
+    // --------------------------------------------------------
 
     container.querySelector("#back-from-multi-editor")
         .addEventListener("click", () => {
@@ -349,7 +594,11 @@ export function renderMultiEditor(
                 destroy();
                 onBack();
             } catch (error) {
-                console.error("Editor save failed:", error);
+                console.error(
+                    "Editor save failed:",
+                    error
+                );
+
                 window.alert(
                     "A scene could not be saved. " +
                     "Please check the console before leaving."
@@ -357,5 +606,7 @@ export function renderMultiEditor(
             }
         });
 
-    return { destroy };
+    return {
+        destroy
+    };
 }
